@@ -35,7 +35,12 @@ class SluiceProvider(BaseLLMProvider):
 
     def __init__(self, config: dict[str, Any]) -> None:
         super().__init__(config)
-        self.app = config.get("app", SLUICE_APP)
+        # Deliberately NOT configurable. `app` identifies the calling
+        # application to the gateway; letting config override it means a
+        # misconfiguration silently misattributes this service's spend to
+        # another, which is worse than not attributing it at all — wrong data
+        # looks authoritative in a way missing data does not.
+        self.app = SLUICE_APP
         self.default_agent = _normalize_tag(config.get("agent")) or DEFAULT_AGENT
         try:
             import openai
