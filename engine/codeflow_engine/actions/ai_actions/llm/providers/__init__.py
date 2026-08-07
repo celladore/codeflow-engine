@@ -8,6 +8,7 @@ from codeflow_engine.actions.llm.providers import (
     MistralProvider,
     OpenAIProvider,
     PerplexityProvider,
+    SluiceProvider,
     TogetherAIProvider,
 )
 from codeflow_engine.actions.llm.providers.azure_openai import AzureOpenAIProvider
@@ -20,6 +21,7 @@ register_module_aliases(
         "groq": "codeflow_engine.actions.llm.providers.groq",
         "mistral": "codeflow_engine.actions.llm.providers.mistral",
         "openai": "codeflow_engine.actions.llm.providers.openai",
+        "sluice": "codeflow_engine.actions.llm.providers.sluice",
     },
 )
 
@@ -31,5 +33,6 @@ __all__ = [
     "MistralProvider",
     "OpenAIProvider",
     "PerplexityProvider",
+    "SluiceProvider",
     "TogetherAIProvider",
 ]

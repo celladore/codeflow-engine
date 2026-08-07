@@ -12,6 +12,7 @@ from codeflow_engine.actions.llm.providers import (AnthropicProvider, GroqProvid
                                           PerplexityProvider,
                                           TogetherAIProvider)
 from codeflow_engine.actions.llm.providers.azure_openai import AzureOpenAIProvider
+from codeflow_engine.actions.llm.providers.sluice import SluiceProvider
 from codeflow_engine.actions.llm.types import LLMResponse
 
 logger = logging.getLogger(__name__)
@@ -22,10 +23,15 @@ class ActionLLMProviderManager:
 
     def __init__(self, config: dict[str, Any], display=None) -> None:
         self.providers: dict[str, BaseLLMProvider] = {}
+        # Sluice leads the fallback order so attributable traffic is preferred;
+        # the direct providers remain as a fallback and local-dev path.
         self.fallback_order: list[str] = config.get(
-            "fallback_order", ["azure_openai", "openai", "anthropic", "mistral"]
+            "fallback_order", ["sluice", "azure_openai", "openai", "anthropic", "mistral"]
         )
-        self.default_provider: str = config.get("default_provider", "azure_openai")
+        # Defaults to the gateway. When SLUICE_BASE_URL/SLUICE_API_KEY are unset
+        # the provider reports itself unavailable and the fallback order below
+        # takes over, so local development is unaffected.
+        self.default_provider: str = config.get("default_provider", "sluice")
         self.display = display
 
         # Initialize providers based on configuration
@@ -33,6 +39,13 @@ class ActionLLMProviderManager:
 
         # Default provider configurations
         default_configs: dict[str, dict[str, Any]] = {
+            # Sluice first: the org gateway, and the only path on which
+            # CodeFlow's model spend is attributable. See Sluice ADR 10.
+            "sluice": {
+                "api_key_env": "SLUICE_API_KEY",
+                "default_model": os.getenv("SLUICE_MODEL", "default"),
+                "base_url": os.getenv("SLUICE_BASE_URL"),
+            },
             "openai": {
                 "api_key_env": "OPENAI_API_KEY",
                 "default_model": "gpt-4",
@@ -79,7 +92,9 @@ class ActionLLMProviderManager:
 
             # Initialize provider
             try:
-                if provider_name == "openai":
+                if provider_name == "sluice":
+                    self.providers[provider_name] = SluiceProvider(merged_config)
+                elif provider_name == "openai":
                     self.providers[provider_name] = OpenAIProvider(merged_config)
                 elif provider_name == "azure_openai":
                     self.providers[provider_name] = AzureOpenAIProvider(merged_config)
@@ -160,7 +175,13 @@ class ActionLLMProviderManager:
         # Try to get the requested provider
         provider = self.get_provider(provider_name)
         if provider is None:
-            # Try fallback providers
+            # Try fallback providers, in order.
+            #
+            # The `break` is load-bearing and was previously missing: without it
+            # the loop kept reassigning and settled on the *last* available
+            # provider, so fallback_order was effectively evaluated backwards.
+            # That matters now that the order encodes a cost-attribution
+            # preference rather than an arbitrary sequence.
             for fallback_name in self.fallback_order:
                 if fallback_name != provider_name:
                     fallback_provider = self.get_provider(fallback_name)
@@ -169,6 +190,7 @@ class ActionLLMProviderManager:
                             f"Using fallback provider '{fallback_name}' instead of '{provider_name}'"
                         )
                         provider = fallback_provider
+                        break
 
             if provider is None:
                 return LLMResponse.from_error(

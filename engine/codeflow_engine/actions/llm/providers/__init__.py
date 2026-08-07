@@ -20,6 +20,7 @@ except ImportError:
     MistralProvider: Any = None
     MISTRAL_AVAILABLE = False
 from codeflow_engine.actions.llm.providers.openai import OpenAIProvider
+from codeflow_engine.actions.llm.providers.sluice import SluiceProvider
 
 
 class PerplexityProvider(BaseLLMProvider):
@@ -190,6 +191,7 @@ __all__ = [
     "GroqProvider",
     "OpenAIProvider",
     "PerplexityProvider",
+    "SluiceProvider",
     "TogetherAIProvider",
 ]
 

@@ -46,6 +46,7 @@ from codeflow_engine.actions.ai_actions.llm.providers import (
     GroqProvider,
     OpenAIProvider,
     PerplexityProvider,
+    SluiceProvider,
     TogetherAIProvider,
     MISTRAL_AVAILABLE,
 )
@@ -203,6 +204,7 @@ __all__ = [
     "MistralProvider",
     "OpenAIProvider",
     "PerplexityProvider",
+    "SluiceProvider",
     "TogetherAIProvider",
     # Factory functions
     "complete_chat",
