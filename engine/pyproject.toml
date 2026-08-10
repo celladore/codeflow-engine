@@ -355,6 +355,10 @@ docstring-code-format = true
 # Allow print statements in scripts
 "scripts/**/*.py" = ["T201"]
 
+# CLI entry points report to the terminal; print is their output channel, not a
+# debugging leftover. Without this, autofixing T201 strips the CLI's output.
+"codeflow_engine/actions/quality_engine/cli.py" = ["T201"]
+
 # Allow all issues in volume control scripts
 "scripts/volume-control/volume_knob.py" = ["ALL"]
 

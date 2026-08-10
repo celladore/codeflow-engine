@@ -12,6 +12,11 @@ from codeflow_engine.actions.quality_engine.platform_detector import PlatformDet
 
 def ask_windows_confirmation() -> bool:
     """Ask user for confirmation to continue on Windows."""
+    print("WINDOWS DETECTED")
+    print(
+        "Some quality tools have limited Windows support; "
+        "unavailable tools are skipped or substituted."
+    )
 
     while True:
         response = (
@@ -23,6 +28,7 @@ def ask_windows_confirmation() -> bool:
             return True
         if response in ["n", "no"]:
             return False
+        print("Please enter 'y' or 'n'.")
 
 
 def main(args: list[str] | None = None) -> int:
@@ -72,6 +78,7 @@ def main(args: list[str] | None = None) -> int:
 
     if platform_detector.is_windows and not parsed_args.skip_windows_check:
         if not ask_windows_confirmation():
+            print("Quality analysis cancelled by user")
             return 0
 
     # Create quality engine
@@ -94,14 +101,25 @@ def main(args: list[str] | None = None) -> int:
         result = asyncio.run(engine.run(inputs))
 
         # Print results
+        print("=" * 60)
+        print("QUALITY ANALYSIS RESULTS")
+        print("=" * 60)
+        print(result.summary)
+        print(f"Issues found: {result.total_issues_found}")
+        print(f"Issues fixed: {result.total_issues_fixed}")
 
         if result.issues_by_tool:
-            for _tool, _issues in result.issues_by_tool.items():
-                pass
+            print("\nIssues by tool:")
+            for tool, issues in result.issues_by_tool.items():
+                print(f"  {tool}: {len(issues)}")
+
+        if result.ai_summary:
+            print(f"\nAI summary: {result.ai_summary}")
 
         return 0 if result.success else 1
 
-    except Exception:
+    except Exception as e:
+        print(f"Quality analysis failed: {e}", file=sys.stderr)
         return 1
 
 

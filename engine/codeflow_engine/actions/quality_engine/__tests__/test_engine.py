@@ -4,316 +4,272 @@ Tests for Quality Engine core functionality.
 
 from pathlib import Path
 import tempfile
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import AsyncMock, patch
 
 import pytest
 
-from codeflow_engine.actions.quality_engine.engine import QualityEngine
-from codeflow_engine.actions.quality_engine.models import QualityOutputs
+from codeflow_engine.actions.quality_engine.__tests__.engine_fixtures import (
+    STUB_TOOL_NAME,
+    make_engine,
+)
+from codeflow_engine.actions.quality_engine.engine import (
+    QualityEngine,
+    create_engine,
+    create_quality_engine,
+)
+from codeflow_engine.actions.quality_engine.models import (
+    QualityInputs,
+    QualityOutputs,
+    ToolResult,
+)
 from codeflow_engine.utils.volume_utils import QualityMode
 
 
-class TestQualityEngine:
-    """Test Quality Engine core functionality."""
+def make_tool_result(issue_count: int = 1, filename: str = "test1.py") -> ToolResult:
+    """Build a ToolResult of the shape run_tool returns."""
+    return ToolResult(
+        issues=[{"filename": filename, "message": f"issue {i}"} for i in range(issue_count)],
+        files_with_issues=[filename] if issue_count else [],
+        summary=f"{issue_count} issues",
+        execution_time=0.5,
+    )
+
+
+def patch_run_tool(**kwargs) -> AsyncMock:
+    """Patch the run_tool the engine imported, so no real tool is executed."""
+    return patch(
+        "codeflow_engine.actions.quality_engine.engine.run_tool",
+        AsyncMock(**kwargs),
+    )
+
+
+class TestToolSelection:
+    """Mode and volume driven tool selection."""
 
     def setup_method(self):
         """Set up test fixtures."""
-        self.engine = QualityEngine()
+        self.engine = make_engine(tool_names=("ruff", "mypy", "bandit"))
         self.test_files = ["test1.py", "test2.py"]
 
-    @pytest.mark.asyncio
-    async def test_execute_fast_mode(self):
-        """Test Quality Engine execution in fast mode."""
-        with patch.object(self.engine, "_run_tools") as mock_run_tools:
-            mock_result = QualityOutputs(
-                success=True,
-                total_issues_found=2,
-                total_issues_fixed=0,
-                files_modified=[],
-                issues_by_tool={"ruff": [{"issue": "test"}]},
-                files_by_tool={"ruff": ["test.py"]},
-                summary="Test summary",
-            )
-            mock_run_tools.return_value = mock_result
+    def test_ultra_fast_mode_selects_only_ruff(self):
+        tools = self.engine._determine_tools_for_mode(
+            QualityMode.ULTRA_FAST, self.test_files
+        )
+        assert tools == ["ruff"]
 
-            result = await self.engine.execute(
-                files=self.test_files, mode=QualityMode.FAST
-            )
+    def test_fast_mode_selects_ruff_and_mypy(self):
+        tools = self.engine._determine_tools_for_mode(
+            QualityMode.FAST, self.test_files
+        )
+        assert tools == ["ruff", "mypy"]
 
-            assert result.success is True
-            assert result.total_issues == 2
-            mock_run_tools.assert_called_once()
+    def test_comprehensive_mode_selects_every_registered_tool(self):
+        tools = self.engine._determine_tools_for_mode(
+            QualityMode.COMPREHENSIVE, self.test_files
+        )
+        assert set(tools) == {"ruff", "mypy", "bandit"}
 
-    @pytest.mark.asyncio
-    async def test_execute_comprehensive_mode(self):
-        """Test Quality Engine execution in comprehensive mode."""
-        with patch.object(self.engine, "_run_tools") as mock_run_tools:
-            mock_result = QualityOutputs(
-                success=True,
-                total_issues_found=5,
-                total_issues_fixed=0,
-                files_modified=[],
-                issues_by_tool={
-                    "ruff": [{"issue": "test"}],
-                    "bandit": [{"issue": "test"}],
-                },
-                files_by_tool={"ruff": ["test.py"], "bandit": ["test.py"]},
-                summary="Test summary",
-            )
-            mock_run_tools.return_value = mock_result
+    def test_ai_enhanced_mode_selects_core_tools(self):
+        tools = self.engine._determine_tools_for_mode(
+            QualityMode.AI_ENHANCED, self.test_files
+        )
+        assert set(tools) == {"ruff", "mypy", "bandit", "interrogate", "radon"}
 
-            result = await self.engine.execute(
-                files=self.test_files, mode=QualityMode.COMPREHENSIVE
-            )
-
-            assert result.success is True
-            assert result.total_issues == 5
-            assert len(result.issues_by_tool) == 2
-            mock_run_tools.assert_called_once()
-
-    @pytest.mark.asyncio
-    async def test_execute_ai_enhanced_mode(self):
-        """Test Quality Engine execution in AI-enhanced mode."""
-        with patch.object(self.engine, "_run_tools") as mock_run_tools:
-            with patch.object(self.engine, "_run_ai_analysis") as mock_ai_analysis:
-                mock_result = QualityOutputs(
-                    success=True,
-                    total_issues_found=3,
-                    total_issues_fixed=0,
-                    files_modified=[],
-                    issues_by_tool={"ruff": [{"issue": "test"}]},
-                    files_by_tool={"ruff": ["test.py"]},
-                    summary="Test summary",
-                )
-                mock_run_tools.return_value = mock_result
-                mock_ai_analysis.return_value = {"ai_suggestions": ["suggestion1"]}
-
-                result = await self.engine.execute(
-                    files=self.test_files, mode=QualityMode.AI_ENHANCED
-                )
-
-                assert result.success is True
-                assert result.total_issues == 3
-                mock_run_tools.assert_called_once()
-                mock_ai_analysis.assert_called_once()
-
-    @pytest.mark.asyncio
-    async def test_execute_smart_mode(self):
-        """Test Quality Engine execution in smart mode."""
-        with patch.object(self.engine, "_select_tools_for_context") as mock_select:
-            with patch.object(self.engine, "_run_tools") as mock_run_tools:
-                mock_select.return_value = ["ruff", "bandit"]
-                mock_result = QualityOutputs(
-                    success=True,
-                    total_issues_found=1,
-                    total_issues_fixed=0,
-                    files_modified=[],
-                    issues_by_tool={"ruff": [{"issue": "test"}]},
-                    files_by_tool={"ruff": ["test.py"]},
-                    summary="Test summary",
-                )
-                mock_run_tools.return_value = mock_result
-
-                result = await self.engine.execute(
-                    files=self.test_files, mode=QualityMode.SMART
-                )
-
-                assert result.success is True
-                mock_select.assert_called_once_with(self.test_files)
-                mock_run_tools.assert_called_once()
-
-    @pytest.mark.asyncio
-    async def test_execute_empty_file_list(self):
-        """Test Quality Engine execution with empty file list."""
-        result = await self.engine.execute(files=[], mode=QualityMode.FAST)
-
-        assert result.success is True
-        assert result.total_issues_found == 0
-        assert len(result.files_modified) == 0
-
-    @pytest.mark.asyncio
-    async def test_execute_disabled_tools(self):
-        """Test Quality Engine execution with disabled tools."""
-        with patch.object(self.engine, "_run_tools") as mock_run_tools:
-            mock_result = QualityOutputs(
-                success=True,
-                total_issues_found=0,
-                total_issues_fixed=0,
-                files_modified=[],
-                issues_by_tool={},
-                files_by_tool={},
-                summary="Test summary",
-            )
-            mock_run_tools.return_value = mock_result
-
-            result = await self.engine.execute(
-                files=self.test_files, mode=QualityMode.FAST, disabled_tools=["ruff"]
-            )
-
-            assert result.success is True
-            mock_run_tools.assert_called_once()
-
-    @pytest.mark.asyncio
-    async def test_execute_tool_failure(self):
-        """Test Quality Engine execution when tools fail."""
-        with patch.object(self.engine, "_run_tools") as mock_run_tools:
-            mock_run_tools.side_effect = Exception("Tool execution failed")
-
-            result = await self.engine.execute(
-                files=self.test_files, mode=QualityMode.FAST
-            )
-
-            assert result.success is False
-            assert "Tool execution failed" in result.error_message
-
-    def test_select_tools_for_context(self):
-        """Test smart tool selection based on context."""
-        # Test Python files
-        python_files = ["test.py", "module.py"]
-        tools = self.engine._select_tools_for_context(python_files)
+    def test_smart_mode_adds_type_checking_for_python_files(self):
+        tools = self.engine._select_smart_tools(
+            ["module.py"], volume=500, available_tools=["ruff", "mypy", "bandit"]
+        )
         assert "ruff" in tools
         assert "mypy" in tools
 
-        # Test JavaScript files
-        js_files = ["test.js", "component.tsx"]
-        tools = self.engine._select_tools_for_context(js_files)
-        assert "eslint" in tools
+    def test_smart_mode_skips_type_checking_without_python_files(self):
+        tools = self.engine._select_smart_tools(
+            ["styles.css"], volume=500, available_tools=["ruff", "mypy"]
+        )
+        assert tools == ["ruff"]
 
-        # Test mixed files
-        mixed_files = ["test.py", "test.js"]
-        tools = self.engine._select_tools_for_context(mixed_files)
-        assert "ruff" in tools
-        assert "eslint" in tools
+    def test_smart_mode_gates_security_scanning_on_volume(self):
+        available = ["ruff", "bandit"]
 
-    def test_validate_configuration(self):
-        """Test configuration validation."""
-        # Test valid configuration
-        valid_config = {
-            "tools": {"ruff": {"enabled": True}, "bandit": {"enabled": True}}
+        quiet = self.engine._select_smart_tools(
+            ["module.py"], volume=200, available_tools=available
+        )
+        loud = self.engine._select_smart_tools(
+            ["module.py"], volume=800, available_tools=available
+        )
+
+        assert "bandit" not in quiet
+        assert "bandit" in loud
+
+    def test_unknown_mode_falls_back_to_all_tools(self):
+        tools = self.engine._determine_tools_for_mode("not-a-mode", self.test_files)
+        assert set(tools) == {"ruff", "mypy", "bandit"}
+
+
+class TestEngineConfiguration:
+    """Volume validation, tool config lookup, and construction."""
+
+    def test_validate_volume_clamps_to_range(self):
+        engine = make_engine()
+
+        assert engine._validate_volume(2000) == 1000
+        assert engine._validate_volume(-5) == 0
+        assert engine._validate_volume(500) == 500
+
+    def test_validate_volume_rejects_non_integers(self):
+        engine = make_engine()
+
+        with pytest.raises(ValueError, match="Volume must be an integer"):
+            engine._validate_volume("high")
+
+    def test_get_tool_config_defaults_to_enabled(self):
+        engine = make_engine()
+
+        assert engine._get_tool_config("ruff") == {"enabled": True, "config": {}}
+
+    def test_get_tool_config_reads_supplied_config(self):
+        engine = make_engine(config={"tools": {"ruff": {"enabled": False}}})
+
+        assert engine._get_tool_config("ruff") == {"enabled": False}
+
+    def test_registry_tools_are_exposed_by_name(self):
+        engine = make_engine(tool_names=("ruff", "mypy"))
+
+        assert set(engine.tools) == {"ruff", "mypy"}
+
+    def test_factories_build_an_engine(self):
+        engine = create_engine(config={"tools": {}})
+        alias_engine = create_quality_engine(config={"tools": {}})
+
+        assert isinstance(engine, QualityEngine)
+        assert isinstance(alias_engine, QualityEngine)
+
+
+class TestQualityEngineExecute:
+    """End-to-end execute() behaviour with run_tool stubbed out."""
+
+    def setup_method(self):
+        """Set up test fixtures."""
+        self.test_files = ["test1.py", "test2.py"]
+
+    def make_inputs(self, mode=QualityMode.FAST, **kwargs) -> QualityInputs:
+        return QualityInputs(mode=mode, files=self.test_files, **kwargs)
+
+    @pytest.mark.asyncio
+    async def test_execute_runs_each_selected_tool(self):
+        engine = make_engine(tool_names=("ruff", "mypy"))
+
+        with patch_run_tool(return_value=make_tool_result(issue_count=1)) as mock_run:
+            result = await engine.execute(self.make_inputs(), {})
+
+        assert mock_run.await_count == 2
+        assert {call.kwargs["tool_name"] for call in mock_run.await_args_list} == {
+            "ruff",
+            "mypy",
         }
-        assert self.engine._validate_configuration(valid_config) is True
-
-        # Test invalid configuration (missing required fields)
-        invalid_config = {"tools": {"ruff": {"enabled": True}}}
-        # This should not raise an exception but return False
-        assert self.engine._validate_configuration(invalid_config) is False
-
-    @pytest.mark.asyncio
-    async def test_run_ai_analysis(self):
-        """Test AI analysis execution."""
-        with patch.object(self.engine, "_get_ai_provider") as mock_get_provider:
-            mock_provider = MagicMock()
-            mock_provider.analyze = AsyncMock(return_value={"suggestions": ["test"]})
-            mock_get_provider.return_value = mock_provider
-
-            result = await self.engine._run_ai_analysis(self.test_files)
-
-            assert result["suggestions"] == ["test"]
-            mock_provider.analyze.assert_called_once_with(self.test_files)
-
-    def test_get_available_tools(self):
-        """Test getting available tools for a mode."""
-        fast_tools = self.engine._get_available_tools(QualityMode.FAST)
-        assert "ruff" in fast_tools
-
-        comprehensive_tools = self.engine._get_available_tools(
-            QualityMode.COMPREHENSIVE
-        )
-        assert "ruff" in comprehensive_tools
-        assert "bandit" in comprehensive_tools
-        assert "mypy" in comprehensive_tools
-
-    def test_filter_disabled_tools(self):
-        """Test filtering disabled tools."""
-        all_tools = ["ruff", "bandit", "mypy"]
-        disabled_tools = ["bandit"]
-
-        filtered_tools = self.engine._filter_disabled_tools(all_tools, disabled_tools)
-
-        assert "ruff" in filtered_tools
-        assert "mypy" in filtered_tools
-        assert "bandit" not in filtered_tools
+        assert result.total_issues_found == 2
+        assert set(result.issues_by_tool) == {"ruff", "mypy"}
+        assert result.files_by_tool["ruff"] == ["test1.py"]
+        assert result.tool_execution_times["ruff"] == 0.5
+        assert result.ai_enhanced is False
 
     @pytest.mark.asyncio
-    async def test_execute_with_custom_config(self):
-        """Test Quality Engine execution with custom configuration."""
-        custom_config = {
-            "tools": {
-                "ruff": {"enabled": True, "max_line_length": 100},
-                "bandit": {"enabled": False},
-            }
-        }
+    async def test_execute_reports_success_when_no_issues_found(self):
+        engine = make_engine()
 
-        with patch.object(self.engine, "_run_tools") as mock_run_tools:
-            mock_result = QualityResult(
-                success=True,
-                total_issues=1,
-                files_with_issues=1,
-                issues_by_tool={"ruff": 1},
-            )
-            mock_run_tools.return_value = mock_result
+        with patch_run_tool(return_value=make_tool_result(issue_count=0)):
+            result = await engine.execute(self.make_inputs(), {})
 
-            result = await self.engine.execute(
-                files=self.test_files, mode=QualityMode.FAST, config=custom_config
+        assert result.success is True
+        assert result.total_issues_found == 0
+
+    @pytest.mark.asyncio
+    async def test_execute_reports_failure_when_issues_found(self):
+        engine = make_engine()
+
+        with patch_run_tool(return_value=make_tool_result(issue_count=3)):
+            result = await engine.execute(self.make_inputs(), {})
+
+        # success on QualityOutputs means "clean", not "the run completed"
+        assert result.success is False
+        assert result.total_issues_found == 3
+
+    @pytest.mark.asyncio
+    async def test_execute_with_empty_file_list_short_circuits(self):
+        engine = make_engine()
+
+        with patch_run_tool(return_value=make_tool_result()) as mock_run:
+            result = await engine.execute(
+                QualityInputs(mode=QualityMode.FAST, files=[]), {}
             )
 
-            assert result.success is True
-            assert result.total_issues == 1
-            mock_run_tools.assert_called_once()
-
-    def test_detect_file_types(self):
-        """Test file type detection."""
-        files = ["test.py", "test.js", "test.ts", "test.pyx", "test.c", "test.cpp"]
-
-        file_types = self.engine._detect_file_types(files)
-
-        assert "python" in file_types
-        assert "javascript" in file_types
-        assert "typescript" in file_types
+        mock_run.assert_not_awaited()
+        assert isinstance(result, QualityOutputs)
+        assert result.success is True
+        assert result.total_issues_found == 0
+        assert result.files_modified == []
+        assert result.summary == "No files provided for analysis"
 
     @pytest.mark.asyncio
-    async def test_execute_with_verbose_logging(self):
-        """Test Quality Engine execution with verbose logging."""
-        with patch.object(self.engine, "_run_tools") as mock_run_tools:
-            with patch("logging.getLogger") as mock_logger:
-                mock_log = MagicMock()
-                mock_logger.return_value = mock_log
-
-                mock_result = QualityResult(
-                    success=True, total_issues=0, files_with_issues=0, issues_by_tool={}
-                )
-                mock_run_tools.return_value = mock_result
-
-                result = await self.engine.execute(
-                    files=self.test_files, mode=QualityMode.FAST, verbose=True
-                )
-
-                assert result.success is True
-                mock_log.info.assert_called()
-
-    def test_merge_results(self):
-        """Test merging multiple tool results."""
-        result1 = QualityResult(
-            success=True,
-            total_issues=2,
-            files_with_issues=1,
-            issues_by_tool={"ruff": 2},
+    async def test_execute_skips_disabled_tools(self):
+        engine = make_engine(
+            tool_names=("ruff", "mypy"),
+            config={"tools": {"ruff": {"enabled": False}}},
         )
 
-        result2 = QualityResult(
-            success=True,
-            total_issues=3,
-            files_with_issues=2,
-            issues_by_tool={"bandit": 3},
-        )
+        with patch_run_tool(return_value=make_tool_result()) as mock_run:
+            await engine.execute(self.make_inputs(), {})
 
-        merged = self.engine._merge_results([result1, result2])
+        assert mock_run.await_count == 1
+        assert mock_run.await_args.kwargs["tool_name"] == "mypy"
 
-        assert merged.success is True
-        assert merged.total_issues == 5
-        assert merged.files_with_issues == 2
-        assert merged.issues_by_tool["ruff"] == 2
-        assert merged.issues_by_tool["bandit"] == 3
+    @pytest.mark.asyncio
+    async def test_execute_ignores_tools_that_failed_to_run(self):
+        """run_tool returns None when a tool blows up; the run must survive it."""
+        engine = make_engine(tool_names=("ruff", "mypy"))
+
+        with patch_run_tool(side_effect=[None, make_tool_result(issue_count=2)]):
+            result = await engine.execute(self.make_inputs(), {})
+
+        assert set(result.issues_by_tool) == {"mypy"}
+        assert result.total_issues_found == 2
+
+    @pytest.mark.asyncio
+    async def test_execute_rejects_invalid_volume(self):
+        engine = make_engine()
+
+        with pytest.raises(ValueError, match="Volume must be an integer"):
+            await engine.execute(self.make_inputs(), {}, volume="loud")
+
+    @pytest.mark.asyncio
+    async def test_execute_without_ai_agents_skips_ai_analysis(self):
+        engine = make_engine()
+
+        with (
+            patch_run_tool(return_value=make_tool_result()),
+            patch(
+                "codeflow_engine.actions.quality_engine.ai.initialize_llm_manager",
+                AsyncMock(),
+            ) as mock_init,
+        ):
+            result = await engine.execute(
+                self.make_inputs(mode=QualityMode.AI_ENHANCED, enable_ai_agents=False),
+                {},
+            )
+
+        mock_init.assert_not_awaited()
+        assert result.ai_enhanced is False
+        assert result.ai_summary is None
+
+    @pytest.mark.asyncio
+    async def test_run_delegates_to_execute(self):
+        engine = make_engine()
+
+        with patch_run_tool(return_value=make_tool_result(issue_count=1)):
+            result = await engine.run(self.make_inputs())
+
+        assert isinstance(result, QualityOutputs)
+        assert result.total_issues_found == 1
 
 
 class TestQualityEngineIntegration:
@@ -321,7 +277,7 @@ class TestQualityEngineIntegration:
 
     def setup_method(self):
         """Set up test fixtures."""
-        self.engine = QualityEngine()
+        self.engine = make_engine(tool_names=(STUB_TOOL_NAME,))
         self.temp_dir = tempfile.mkdtemp()
 
     def teardown_method(self):
@@ -338,66 +294,26 @@ class TestQualityEngineIntegration:
 
     @pytest.mark.asyncio
     async def test_end_to_end_fast_mode(self):
-        """Test end-to-end Quality Engine execution in fast mode."""
-        # Create test files
+        """Real files in, aggregated QualityOutputs out."""
         test_file1 = self.create_test_file(
             "test1.py", "def test_function():\n    pass\n"
         )
         test_file2 = self.create_test_file("test2.py", "import os\nprint('hello')\n")
 
-        with patch.object(self.engine, "_run_tools") as mock_run_tools:
-            mock_result = QualityResult(
-                success=True,
-                total_issues=1,
-                files_with_issues=1,
-                issues_by_tool={"ruff": 1},
-            )
-            mock_run_tools.return_value = mock_result
-
+        with patch_run_tool(
+            return_value=make_tool_result(issue_count=1, filename=test_file1)
+        ) as mock_run:
             result = await self.engine.execute(
-                files=[test_file1, test_file2], mode=QualityMode.FAST
+                QualityInputs(
+                    mode=QualityMode.FAST, files=[test_file1, test_file2]
+                ),
+                {},
             )
 
-            assert result.success is True
-            assert result.total_issues == 1
-            mock_run_tools.assert_called_once()
-
-    @pytest.mark.asyncio
-    async def test_end_to_end_comprehensive_mode(self):
-        """Test end-to-end Quality Engine execution in comprehensive mode."""
-        # Create test files with various issues
-        test_file = self.create_test_file(
-            "test.py",
-            """
-def complex_function():
-    x = 1
-    y = 2
-    z = 3
-    if x > 0:
-        if y > 0:
-            if z > 0:
-                print("nested")
-    return x + y + z
-""",
-        )
-
-        with patch.object(self.engine, "_run_tools") as mock_run_tools:
-            mock_result = QualityResult(
-                success=True,
-                total_issues=3,
-                files_with_issues=1,
-                issues_by_tool={"ruff": 1, "bandit": 1, "radon": 1},
-            )
-            mock_run_tools.return_value = mock_result
-
-            result = await self.engine.execute(
-                files=[test_file], mode=QualityMode.COMPREHENSIVE
-            )
-
-            assert result.success is True
-            assert result.total_issues == 3
-            assert len(result.issues_by_tool) == 3
-            mock_run_tools.assert_called_once()
+        assert mock_run.await_args.kwargs["files"] == [test_file1, test_file2]
+        assert result.total_issues_found == 1
+        assert result.files_by_tool[STUB_TOOL_NAME] == [test_file1]
+        assert result.summary
 
 
 if __name__ == "__main__":
