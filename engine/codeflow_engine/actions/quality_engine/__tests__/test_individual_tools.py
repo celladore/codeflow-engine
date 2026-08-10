@@ -199,6 +199,15 @@ class TestMyPyTool:
 
         assert self.tool._parse_output(output) == []
 
+    def test_parse_output_names_the_tool_when_a_line_carries_no_code(self):
+        """Notes carry no bracketed code, but LintIssue.code is a str."""
+        issues = self.tool._parse_output('a.py:3:1: note: Revealed type is "int"\n')
+
+        assert len(issues) == 1
+        issue = issues[0]
+        assert issue["level"] == "note"
+        assert issue["code"] == "mypy"
+
     @pytest.mark.asyncio
     async def test_run_parses_output_on_windows(self):
         """Windows takes the subprocess.run branch to avoid asyncio subprocesses."""
