@@ -307,6 +307,215 @@ class TestUntaggedProviderStacksCannotReachSluice:
             )
 
 
+class TestBothSluiceProvidersCoexist:
+    """Two Sluice providers exist after #44 and #45 landed; both must work.
+
+    The merge of those two branches produced no textual conflict but a semantic
+    one: `manager.py` imported both classes under the bare name `SluiceProvider`,
+    and the base-class guard added by #45 refused to construct #44's provider at
+    all. The default provider is `sluice`, so the visible effect was every request
+    silently falling back to a direct vendor — untagged, unattributable spend,
+    which is the exact outcome both branches existed to prevent.
+    """
+
+    def test_config_driven_provider_can_reach_the_gateway(
+        self, sluice_env: None
+    ) -> None:
+        from codeflow_engine.actions.llm.providers.sluice import (
+            SluiceProvider as ConfigSluiceProvider,
+        )
+
+        provider = ConfigSluiceProvider(
+            {"api_key": "sk-test", "base_url": SLUICE_BASE_URL}
+        )
+        assert provider.SUPPORTS_SLUICE_REQUEST_METADATA is True
+
+    def test_config_driven_provider_tags_its_requests(
+        self, recorder: _CompletionsRecorder, sluice_env: None
+    ) -> None:
+        from codeflow_engine.actions.llm.providers.sluice import (
+            SluiceProvider as ConfigSluiceProvider,
+        )
+
+        provider = ConfigSluiceProvider(
+            {"api_key": "sk-test", "base_url": SLUICE_BASE_URL}
+        )
+        provider.complete({"messages": [{"role": "user", "content": "hi"}]})
+
+        metadata = sent_metadata(recorder)
+        assert metadata["app"] == "codeflow-engine"
+        assert KEBAB_CASE.match(metadata["agent"])
+
+    def test_both_providers_agree_on_app(self) -> None:
+        # They previously defined SLUICE_APP independently, which is a drift risk:
+        # two spellings of `app` would split this repo's spend across two series.
+        from codeflow_engine.actions.llm.providers import sluice as config_provider
+
+        assert config_provider.SLUICE_APP == SLUICE_APP
+
+    def test_default_manager_registers_sluice(self, sluice_env: None) -> None:
+        # The regression: default_provider is "sluice", so if it fails to register
+        # the manager silently serves every request from a direct vendor.
+        manager = ActionLLMProviderManager({})
+
+        assert manager.default_provider == "sluice"
+        assert "sluice" in manager.providers, (
+            "default provider missing — traffic would fall back to an untagged vendor"
+        )
+
+    def test_typed_agent_takes_precedence_over_the_free_form_provider(
+        self, recorder: _CompletionsRecorder, sluice_env: None
+    ) -> None:
+        manager = ActionLLMProviderManager(
+            {"providers": {"sluice": {"agent": SluiceAgent.LINTING_FIXER}}}
+        )
+        manager.complete(
+            {"provider": "sluice", "messages": [{"role": "user", "content": "x"}]}
+        )
+
+        assert sent_metadata(recorder)["agent"] == "linting-fixer"
+
+
+class TestClosedLabelSetHoldsThroughBothProviders:
+    """ADR 10 forbids free-form input in `agent` — on *both* Sluice routes.
+
+    `agent` is a Prometheus label with a ≤200-distinct budget, and ADR 10's
+    *Forbidden* list names this case outright: "Free-form user input in any
+    required field. `app`/`agent` are caller identity, not request payload."
+
+    The typed provider takes a `SluiceAgent`, so it could not violate this. The
+    config-driven one took a free-form string off the caller's request dict,
+    kebab-cased it and sent it — a normaliser standing where a closed-set check
+    belongs. Normalising an unknown value makes it *look* conformant without
+    making it bounded, and the gateway accepts whatever arrives (it counts
+    malformed values rather than rejecting them), so nothing downstream would
+    have surfaced it either.
+
+    Asserted against both providers together because the failure this guards is
+    divergence: one route enforcing the set and the other not is how the hole
+    reopens.
+    """
+
+    #: Values that must never reach the gateway as a label. Includes the shapes a
+    #: kebab-caser would happily "fix" into something plausible, and the ones that
+    #: would be derived from request payload or a model name.
+    OUT_OF_SET_AGENTS = [
+        "user-supplied-agent",
+        "LintingFixer",  # normalises to `lintingfixer`, which is not a member
+        "linting_fixer",  # normalises *onto* a real member — silent misattribution
+        "fix the file src/foo.py",  # request payload as a label
+        "gpt-4",  # model name as a label
+        "   ",  # ADR 17 treats whitespace-only as absent
+    ]
+
+    def config_provider(self, **overrides: Any) -> Any:
+        from codeflow_engine.actions.llm.providers.sluice import (
+            SluiceProvider as ConfigSluiceProvider,
+        )
+
+        return ConfigSluiceProvider(
+            {"api_key": "sk-test", "base_url": SLUICE_BASE_URL, **overrides}
+        )
+
+    @pytest.mark.parametrize("value", OUT_OF_SET_AGENTS)
+    def test_typed_provider_refuses_an_out_of_set_agent(self, value: str) -> None:
+        with pytest.raises(SluiceMetadataError):
+            SluiceProvider(value)
+
+    @pytest.mark.parametrize("value", OUT_OF_SET_AGENTS)
+    def test_config_driven_provider_refuses_an_out_of_set_request_agent(
+        self, recorder: _CompletionsRecorder, sluice_env: None, value: str
+    ) -> None:
+        provider = self.config_provider()
+        response = provider.complete(
+            {"messages": [{"role": "user", "content": "hi"}], "agent": value}
+        )
+
+        assert response.error is not None
+        assert recorder.calls == [], f"{value!r} reached the gateway as a label"
+
+    @pytest.mark.parametrize("value", OUT_OF_SET_AGENTS)
+    def test_config_driven_provider_refuses_an_out_of_set_config_agent(
+        self, sluice_env: None, value: str
+    ) -> None:
+        # Config is the other way in. Failing at construction keeps the bad value
+        # attached to the config that set it, instead of surfacing one request later.
+        with pytest.raises(SluiceMetadataError):
+            self.config_provider(agent=value)
+
+    @pytest.mark.parametrize("value", OUT_OF_SET_AGENTS)
+    def test_both_routes_share_one_closed_set_chokepoint(self, value: str) -> None:
+        # Why the two tests above can stay in step: both routes now resolve the
+        # agent through `coerce_agent`, so neither can drift more permissive than
+        # the other. A second, parallel implementation is how the hole opened the
+        # first time — the config-driven provider had its own normaliser.
+        with pytest.raises(SluiceMetadataError):
+            build_request_metadata(value)
+
+    def test_known_agents_still_pass_through_the_config_driven_provider(
+        self, recorder: _CompletionsRecorder, sluice_env: None
+    ) -> None:
+        # Closing the set must not close the door: a per-request override naming a
+        # real member is the mechanism that lets one shared instance serve several
+        # calling features.
+        provider = self.config_provider()
+        provider.complete(
+            {
+                "messages": [{"role": "user", "content": "hi"}],
+                "agent": SluiceAgent.ISSUE_CREATOR.value,
+            }
+        )
+
+        assert sent_metadata(recorder)["agent"] == "issue-creator"
+
+    @pytest.mark.parametrize(
+        "request_extra",
+        [
+            pytest.param({}, id="key-omitted"),
+            pytest.param({"agent": None}, id="null"),
+            pytest.param({"agent": ""}, id="empty-string"),
+        ],
+    )
+    def test_absent_request_agent_falls_back_to_a_closed_set_member(
+        self,
+        recorder: _CompletionsRecorder,
+        sluice_env: None,
+        request_extra: dict[str, Any],
+    ) -> None:
+        # Absent is not the same as invalid. ADR 17 treats omitted/null/empty as
+        # missing, and the treatment for missing is the default bucket — not an
+        # empty label, and not a silent fall-through to an untagged vendor.
+        self.config_provider().complete(
+            {"messages": [{"role": "user", "content": "hi"}], **request_extra}
+        )
+
+        assert sent_metadata(recorder)["agent"] in {a.value for a in SluiceAgent}
+
+    def test_the_default_agent_is_itself_a_closed_set_member(self) -> None:
+        # The fallback lands in the same Prometheus label as every explicit value,
+        # so a free string here would reopen the set from the other end.
+        from codeflow_engine.actions.llm.providers.sluice import DEFAULT_AGENT
+
+        assert isinstance(DEFAULT_AGENT, SluiceAgent)
+
+    def test_manager_route_refuses_an_out_of_set_agent(
+        self, recorder: _CompletionsRecorder, sluice_env: None
+    ) -> None:
+        # End to end: the closed set has to survive the manager, which is the only
+        # way most callers reach a provider at all.
+        manager = ActionLLMProviderManager({})
+        response = manager.complete(
+            {
+                "provider": "sluice",
+                "messages": [{"role": "user", "content": "x"}],
+                "agent": "arbitrary-caller-string",
+            }
+        )
+
+        assert response.error is not None
+        assert recorder.calls == []
+
+
 class TestNonSluiceRoutesAreUnaffected:
     """The contract binds Sluice traffic; direct-to-vendor routes must not change."""
 
@@ -341,25 +550,35 @@ class TestLintingFixerRoutesThroughSluice:
         )
         assert "sluice" in manager.providers
 
-    def test_manager_omits_sluice_without_an_agent(
+    def test_untyped_sluice_route_still_tags(
         self, recorder: _CompletionsRecorder, sluice_env: None
     ) -> None:
-        # Opt-in per caller: a shared default would misattribute one feature's
-        # spend to whichever agent happened to be configured.
+        # Without a typed agent the config-driven provider serves `sluice`. The
+        # invariant that matters is not which class registers, but that whatever
+        # does still sends the ADR 17 block — so no path reaches the gateway bare.
         manager = ActionLLMProviderManager({"providers": {}})
-        assert "sluice" not in manager.providers
+        assert "sluice" in manager.providers
 
-    def test_malformed_sluice_config_leaves_vendor_fallbacks_intact(
+        manager.complete(
+            {"provider": "sluice", "messages": [{"role": "user", "content": "x"}]}
+        )
+        metadata = sent_metadata(recorder)
+        assert metadata["app"] == "codeflow-engine"
+        assert KEBAB_CASE.match(metadata["agent"])
+
+    def test_malformed_typed_config_leaves_the_manager_usable(
         self, recorder: _CompletionsRecorder, sluice_env: None
     ) -> None:
-        # A sluice block with no `agent` must degrade to "no sluice provider",
-        # not abort construction and take the vendor providers down with it.
+        # A sluice block with no `agent` must not abort construction. It degrades
+        # to the config-driven provider; the vendor fallbacks survive either way.
         manager = ActionLLMProviderManager(
             {"providers": {"sluice": {"model": "cheap-fast"}}}
         )
 
-        assert "sluice" not in manager.providers
         assert manager.providers, "vendor providers were lost"
+        assert not isinstance(manager.providers.get("sluice"), SluiceProvider), (
+            "a typed provider registered despite an invalid agent"
+        )
 
     def test_completion_through_the_manager_is_tagged(
         self, recorder: _CompletionsRecorder, sluice_env: None

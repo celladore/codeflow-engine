@@ -16,7 +16,11 @@ from codeflow_engine.actions.llm.providers.sluice import SluiceProvider
 from codeflow_engine.actions.llm.types import LLMResponse
 from codeflow_engine.core.llm.sluice import (SluiceMetadataError,
                                              SluiceNotConfiguredError)
-from codeflow_engine.core.llm.sluice_provider import SluiceProvider
+# Aliased: two Sluice providers exist. This one takes a typed SluiceAgent from
+# the closed set; the config-driven one above normalises a free-form `agent` off
+# the request. Importing both under the bare name silently shadowed one of them.
+from codeflow_engine.core.llm.sluice_provider import (SluiceProvider as
+                                                     TypedSluiceProvider)
 
 logger = logging.getLogger(__name__)
 
@@ -102,7 +106,7 @@ class ActionLLMProviderManager:
                 # SluiceMetadataError below and leaves the vendor fallbacks intact,
                 # instead of a KeyError aborting the whole manager.
                 self.providers["sluice"] = cast(
-                    BaseLLMProvider, SluiceProvider(sluice_config.get("agent", ""))
+                    BaseLLMProvider, TypedSluiceProvider(sluice_config.get("agent", ""))
                 )
             except (SluiceNotConfiguredError, SluiceMetadataError) as e:
                 logger.warning("Sluice provider not available: %s", e)
@@ -115,6 +119,10 @@ class ActionLLMProviderManager:
             # Initialize provider
             try:
                 if provider_name == "sluice":
+                    # A caller that named a typed agent already registered above;
+                    # don't replace that stronger guarantee with the free-form one.
+                    if "sluice" in self.providers:
+                        continue
                     self.providers[provider_name] = SluiceProvider(merged_config)
                 elif provider_name == "openai":
                     self.providers[provider_name] = OpenAIProvider(merged_config)
