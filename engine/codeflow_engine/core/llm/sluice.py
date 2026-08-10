@@ -63,6 +63,17 @@ class SluiceAgent(str, Enum):
     COMMENT_ANALYZER = "comment-analyzer"
     ISSUE_CREATOR = "issue-creator"
 
+    # The config-driven `actions.llm` route, which serves the manager's default
+    # `sluice` provider when no caller has named a feature. Deliberately coarse:
+    # it answers "codeflow-engine's untyped LLM path" and nothing finer.
+    #
+    # It earns its slot because the alternative for that route is not a better
+    # label — the manager's default_provider is `sluice`, so a route with no
+    # sendable agent falls through to a direct vendor, which is untagged spend.
+    # One coarse bucket beats that. Prefer a specific member; this is the floor,
+    # not a default to reach for.
+    LLM_ACTION = "llm-action"
+
 
 # Fail at import rather than at request time if someone adds a non-conforming member.
 # A malformed-but-present value is accepted by the gateway (it increments
