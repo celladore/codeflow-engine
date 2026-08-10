@@ -184,7 +184,9 @@ class MyPyTool(Tool[MyPyConfig, LintIssue]):
                     "filename": issue_data["file"],
                     "line_number": int(issue_data["line"]),
                     "column_number": int(issue_data["col"]),
-                    "code": issue_data.get("code", "mypy"),
+                    # The code group is optional, so groupdict() supplies None
+                    # rather than falling back to a default key.
+                    "code": issue_data["code"] or "mypy",
                     "message": issue_data["message"].strip(),
                     "level": issue_data["level"],
                 }
