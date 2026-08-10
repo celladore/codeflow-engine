@@ -23,6 +23,7 @@ from codeflow_engine.actions.ai_linting_fixer.models import (
     LintingIssue,
     create_empty_outputs,
 )
+from codeflow_engine.core.llm.sluice import SluiceAgent, SluiceConfig
 from codeflow_engine.workflows.error_handler_workflow import handle_error_with_workflow
 from codeflow_engine.actions.llm.manager import (
     ActionLLMProviderManager as LLMProviderManager,
@@ -72,6 +73,13 @@ class WorkflowOrchestrator:
             "fallback_order": [],  # Will be populated based on available providers
             "providers": {},
         }
+
+        # Prefer the Sluice gateway when configured: it centralises spend tracking
+        # and enforces per-key budgets. Added before the vendor providers because the
+        # default is derived from insertion order below; those stay as fallbacks for
+        # deployments with no gateway. Tagged `linting-fixer` per Sluice ADR 17.
+        if SluiceConfig.from_env() is not None:
+            llm_config["providers"]["sluice"] = {"agent": SluiceAgent.LINTING_FIXER}
 
         # Add Azure OpenAI provider only if properly configured
         if azure_configured:

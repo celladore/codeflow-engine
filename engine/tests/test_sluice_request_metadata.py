@@ -27,6 +27,7 @@ from typing import Any
 
 import pytest
 
+from codeflow_engine.actions.llm.manager import ActionLLMProviderManager
 from codeflow_engine.core.llm.openai_compatible import OpenAICompatibleProvider
 from codeflow_engine.core.llm.sluice import (
     SLUICE_APP,
@@ -278,6 +279,69 @@ class TestNonSluiceRoutesAreUnaffected:
         complete_once(provider)
 
         assert "extra_body" not in recorder.calls[0]
+
+
+class TestLintingFixerRoutesThroughSluice:
+    """The first real caller. Without one, the alias emits no traffic to verify."""
+
+    def test_manager_exposes_sluice_when_an_agent_is_named(
+        self, recorder: _CompletionsRecorder, sluice_env: None
+    ) -> None:
+        manager = ActionLLMProviderManager(
+            {"providers": {"sluice": {"agent": SluiceAgent.LINTING_FIXER}}}
+        )
+        assert "sluice" in manager.providers
+
+    def test_manager_omits_sluice_without_an_agent(
+        self, recorder: _CompletionsRecorder, sluice_env: None
+    ) -> None:
+        # Opt-in per caller: a shared default would misattribute one feature's
+        # spend to whichever agent happened to be configured.
+        manager = ActionLLMProviderManager({"providers": {}})
+        assert "sluice" not in manager.providers
+
+    def test_completion_through_the_manager_is_tagged(
+        self, recorder: _CompletionsRecorder, sluice_env: None
+    ) -> None:
+        manager = ActionLLMProviderManager(
+            {
+                "providers": {"sluice": {"agent": SluiceAgent.LINTING_FIXER}},
+                "default_provider": "sluice",
+            }
+        )
+        manager.complete({"messages": [{"role": "user", "content": "fix this"}]})
+
+        metadata = sent_metadata(recorder)
+        assert metadata == {"app": "codeflow-engine", "agent": "linting-fixer"}
+
+    def test_linting_fixer_prefers_sluice_when_configured(
+        self, monkeypatch: pytest.MonkeyPatch, sluice_env: None
+    ) -> None:
+        from codeflow_engine.actions.ai_linting_fixer.display import DisplayConfig
+        from codeflow_engine.actions.ai_linting_fixer.workflow_orchestrator import (
+            WorkflowOrchestrator,
+        )
+
+        # A vendor key is present too, so this asserts precedence rather than
+        # merely that sluice is the only option available.
+        monkeypatch.setenv("OPENAI_API_KEY", "sk-vendor")
+        captured: dict[str, Any] = {}
+
+        def capture(config: dict[str, Any], *args: Any, **kwargs: Any) -> Any:
+            captured.update(config)
+            return None
+
+        monkeypatch.setattr(
+            "codeflow_engine.actions.ai_linting_fixer.workflow_orchestrator"
+            ".LLMProviderManager",
+            capture,
+        )
+        WorkflowOrchestrator(DisplayConfig()).create_llm_manager(
+            types.SimpleNamespace(provider=None)
+        )
+
+        assert captured["default_provider"] == "sluice"
+        assert captured["providers"]["sluice"]["agent"] == SluiceAgent.LINTING_FIXER
 
 
 class TestConfiguration:

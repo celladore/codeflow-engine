@@ -4,7 +4,7 @@ LLM Provider Manager - Manages multiple LLM providers with fallback support.
 
 import logging
 import os
-from typing import Any
+from typing import Any, cast
 
 from codeflow_engine.actions.llm.base import BaseLLMProvider
 from codeflow_engine.actions.llm.providers import (AnthropicProvider, GroqProvider,
@@ -13,6 +13,9 @@ from codeflow_engine.actions.llm.providers import (AnthropicProvider, GroqProvid
                                           TogetherAIProvider)
 from codeflow_engine.actions.llm.providers.azure_openai import AzureOpenAIProvider
 from codeflow_engine.actions.llm.types import LLMResponse
+from codeflow_engine.core.llm.sluice import (SluiceMetadataError,
+                                             SluiceNotConfiguredError)
+from codeflow_engine.core.llm.sluice_provider import SluiceProvider
 
 logger = logging.getLogger(__name__)
 
@@ -71,6 +74,22 @@ class ActionLLMProviderManager:
                 "base_url": None,
             },
         }
+
+        # Sluice is built from its own env-driven config rather than the vendor table
+        # above, and only when the caller names its ADR 17 agent. Keeping it opt-in
+        # per caller is deliberate: this manager is shared, and a shared default
+        # would attribute one feature's spend to whichever agent happened to be set.
+        sluice_config: dict[str, Any] = provider_configs.get("sluice", {})
+        if sluice_config:
+            try:
+                # Structurally compatible with this stack's provider interface
+                # (`complete`, `is_available`, `default_model`) and returns the same
+                # LLMResponse, which actions.llm.types re-exports from core.
+                self.providers["sluice"] = cast(
+                    BaseLLMProvider, SluiceProvider(sluice_config["agent"])
+                )
+            except (SluiceNotConfiguredError, SluiceMetadataError) as e:
+                logger.warning("Sluice provider not available: %s", e)
 
         # Merge user configs with defaults
         for provider_name, default_config in default_configs.items():
