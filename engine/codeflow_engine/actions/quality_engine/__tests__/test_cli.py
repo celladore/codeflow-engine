@@ -9,6 +9,19 @@ from unittest.mock import AsyncMock, MagicMock, patch
 from codeflow_engine.actions.quality_engine.cli import ask_windows_confirmation, main
 
 
+def make_result(success=True, total_issues_found=0, issues_by_tool=None):
+    """Build a stand-in for QualityOutputs with the fields the CLI reads."""
+    result = MagicMock()
+    result.success = success
+    result.total_issues_found = total_issues_found
+    result.total_issues_fixed = 0
+    result.files_modified = []
+    result.issues_by_tool = issues_by_tool if issues_by_tool is not None else {}
+    result.summary = "Test summary"
+    result.ai_summary = None
+    return result
+
+
 class TestCLI:
     """Test CLI functionality."""
 
@@ -53,11 +66,11 @@ class TestCLI:
 
         # Mock quality engine
         mock_engine = MagicMock()
-        mock_result = MagicMock()
-        mock_result.success = True
-        mock_result.total_issues = 5
-        mock_result.files_with_issues = 2
-        mock_result.issues_by_tool = {"ruff": 3, "bandit": 2}
+        mock_result = make_result(
+            success=True,
+            total_issues_found=5,
+            issues_by_tool={"ruff": [{}, {}, {}], "bandit": [{}, {}]},
+        )
         mock_engine.run = AsyncMock(return_value=mock_result)
         mock_quality_engine.return_value = mock_engine
 
@@ -71,6 +84,9 @@ class TestCLI:
                 assert result == 0
                 output = mock_stdout.getvalue()
                 assert "QUALITY ANALYSIS RESULTS" in output
+                assert "Issues found: 5" in output
+                assert "ruff: 3" in output
+                assert "bandit: 2" in output
 
     @patch("codeflow_engine.actions.quality_engine.cli.QualityEngine")
     @patch("codeflow_engine.actions.quality_engine.cli.PlatformDetector")
@@ -85,12 +101,7 @@ class TestCLI:
 
         # Mock quality engine
         mock_engine = MagicMock()
-        mock_result = MagicMock()
-        mock_result.success = True
-        mock_result.total_issues = 0
-        mock_result.files_with_issues = 0
-        mock_result.issues_by_tool = {}
-        mock_engine.run = AsyncMock(return_value=mock_result)
+        mock_engine.run = AsyncMock(return_value=make_result())
         mock_quality_engine.return_value = mock_engine
 
         # Test CLI with Windows confirmation
@@ -139,12 +150,7 @@ class TestCLI:
 
         # Mock quality engine
         mock_engine = MagicMock()
-        mock_result = MagicMock()
-        mock_result.success = True
-        mock_result.total_issues = 0
-        mock_result.files_with_issues = 0
-        mock_result.issues_by_tool = {}
-        mock_engine.run = AsyncMock(return_value=mock_result)
+        mock_engine.run = AsyncMock(return_value=make_result())
         mock_quality_engine.return_value = mock_engine
 
         # Test CLI with skip-windows-check
@@ -234,12 +240,7 @@ class TestCLI:
 
         # Mock quality engine
         mock_engine = MagicMock()
-        mock_result = MagicMock()
-        mock_result.success = True
-        mock_result.total_issues = 0
-        mock_result.files_with_issues = 0
-        mock_result.issues_by_tool = {}
-        mock_engine.run = AsyncMock(return_value=mock_result)
+        mock_engine.run = AsyncMock(return_value=make_result())
         mock_quality_engine.return_value = mock_engine
 
         # Test different modes

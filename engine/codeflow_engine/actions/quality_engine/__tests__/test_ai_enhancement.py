@@ -6,6 +6,10 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
+from codeflow_engine.actions.quality_engine.__tests__.engine_fixtures import (
+    STUB_TOOL_NAME,
+    make_engine,
+)
 from codeflow_engine.actions.quality_engine.ai.ai_analyzer import AIAnalyzer
 from codeflow_engine.actions.quality_engine.ai.ai_handler import AIHandler
 from codeflow_engine.actions.quality_engine.ai.ai_modes import AIMode
@@ -290,7 +294,8 @@ class TestAIHandler:
         assert len(merged["suggestions"]) == 2
         assert "Add type hints" in merged["suggestions"]
         assert "Add docstring" in merged["suggestions"]
-        assert merged["score"] == 0.85  # Average of 0.8 and 0.9
+        # Average of 0.8 and 0.9 - float mean, so compare approximately
+        assert merged["score"] == pytest.approx(0.85)
 
     def test_validate_ai_result(self):
         """Test validating AI analysis result."""
@@ -328,8 +333,8 @@ class TestAIHandler:
             result = await self.handler.apply_suggestions(file_content, suggestions)
 
             assert result["modified"] is True
-            assert "type hints" in result["applied_suggestions"]
-            assert "docstring" in result["applied_suggestions"]
+            # applied_suggestions records the whole suggestion, lower-cased
+            assert result["applied_suggestions"] == ["add type hints", "add docstring"]
 
     def test_generate_fix_patches(self):
         """Test generating fix patches from AI suggestions."""
@@ -381,34 +386,66 @@ class TestAIEnhancementIntegration:
 
     @pytest.mark.asyncio
     async def test_ai_enhanced_quality_engine_integration(self):
-        """Test AI enhancement integration with Quality Engine."""
-        from codeflow_engine.actions.quality_engine.engine import QualityEngine
+        """Test AI enhancement integration with Quality Engine.
+
+        Patches the engine's real seams: run_tool (imported into engine) and the
+        initialize_llm_manager / run_ai_analysis pair the engine imports from the
+        quality_engine.ai package at call time.
+        """
+        from codeflow_engine.actions.quality_engine.models import (
+            QualityInputs,
+            ToolResult,
+        )
         from codeflow_engine.utils.volume_utils import QualityMode
 
-        engine = QualityEngine()
+        engine = make_engine()
 
-        with patch.object(engine, "_run_tools") as mock_run_tools:
-            with patch.object(engine, "_run_ai_analysis") as mock_ai_analysis:
-                # Mock tool results
-                mock_tool_result = MagicMock()
-                mock_tool_result.success = True
-                mock_tool_result.total_issues = 2
-                mock_run_tools.return_value = mock_tool_result
+        tool_result = ToolResult(
+            issues=[
+                {"filename": "test.py", "message": "Missing type hints"},
+                {"filename": "test.py", "message": "No docstring"},
+            ],
+            files_with_issues=["test.py"],
+            summary="ruff: 2 issues",
+            execution_time=0.1,
+        )
+        ai_result = {
+            "issues": [],
+            "files_with_issues": [],
+            "summary": "AI review: add type hints",
+        }
 
-                # Mock AI analysis
-                mock_ai_analysis.return_value = {
-                    "suggestions": ["Add type hints"],
-                    "score": 0.85,
-                }
+        with (
+            patch(
+                "codeflow_engine.actions.quality_engine.engine.run_tool",
+                AsyncMock(return_value=tool_result),
+            ) as mock_run_tool,
+            patch(
+                "codeflow_engine.actions.quality_engine.ai.initialize_llm_manager",
+                AsyncMock(return_value=MagicMock()),
+            ),
+            patch(
+                "codeflow_engine.actions.quality_engine.ai.run_ai_analysis",
+                AsyncMock(return_value=ai_result),
+            ) as mock_ai_analysis,
+        ):
+            inputs = QualityInputs(
+                mode=QualityMode.AI_ENHANCED,
+                files=self.test_files,
+                enable_ai_agents=True,
+            )
+            result = await engine.execute(inputs, {})
 
-                # Execute AI-enhanced mode
-                result = await engine.execute(
-                    files=self.test_files, mode=QualityMode.AI_ENHANCED
-                )
+        mock_run_tool.assert_called_once()
+        mock_ai_analysis.assert_called_once()
+        assert mock_ai_analysis.call_args.args[0] == self.test_files
 
-                assert result.success is True
-                assert result.total_issues == 2
-                mock_ai_analysis.assert_called_once()
+        assert result.ai_enhanced is True
+        assert result.ai_summary == "AI review: add type hints"
+        assert result.total_issues_found == 2
+        assert set(result.issues_by_tool) == {STUB_TOOL_NAME, "ai_analysis"}
+        # QualityOutputs.success means "no issues found", not "the run worked"
+        assert result.success is False
 
 
 if __name__ == "__main__":
