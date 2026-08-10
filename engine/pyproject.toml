@@ -227,8 +227,22 @@ codeflow_engine = [
 
 [tool.pytest.ini_options]
 minversion = "7.0"
-addopts = ["-ra", "--tb=short", "--maxfail=10", "-p", "no:langsmith"]
-testpaths = ["tests"]
+# No --maxfail here: a cap in committed config makes every reported failure count a
+# floor rather than a total, for CI and for anyone running locally. It hid the real
+# numbers for a long time — CI reported "8 failed, 2 errors" (truncated at 10) where
+# the suite actually has 75 failed and 56 errors. Pass --maxfail/-x on the command
+# line when you want fast-fail.
+addopts = ["-ra", "--tb=short", "-p", "no:langsmith"]
+# Both test trees. The quality_engine tests live inside the package rather than under
+# tests/, so listing only "tests" silently excluded 197 of them from every CI run —
+# they drifted for months behind green checks that never executed them.
+# Listed as an explicit path rather than adding "codeflow_engine", because several
+# production modules match pytest's default test discovery patterns and would be
+# collected as tests: actions/ai_linting_fixer/test_generator.py,
+# actions/prototype_enhancement/generators/test_generator.py (both test *generators*,
+# not tests) and actions/visual_regression_test.py (an Action). Add new in-package
+# test directories here explicitly for the same reason.
+testpaths = ["tests", "codeflow_engine/actions/quality_engine/__tests__"]
 norecursedirs = []
 # pytest-asyncio configuration
 asyncio_mode = "strict"
@@ -244,7 +258,10 @@ filterwarnings = [
 
 [tool.coverage.run]
 source = ["codeflow_engine"]
-omit = ["*/tests/*", "*/migrations/*", "*/venv/*", "*/__pycache__/*"]
+# */__tests__/* is distinct from */tests/* and must be listed separately: the
+# quality_engine tests live inside the measured package, so without this they count
+# as covered source and inflate the coverage number.
+omit = ["*/tests/*", "*/__tests__/*", "*/migrations/*", "*/venv/*", "*/__pycache__/*"]
 
 [tool.coverage.report]
 exclude_lines = [
