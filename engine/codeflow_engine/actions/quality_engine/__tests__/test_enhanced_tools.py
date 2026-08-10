@@ -210,8 +210,8 @@ class TestSemgrepTool:
 
         assert tool.name == "semgrep"
         assert tool.category == "security"
-        assert tool.timeout == 10.0
-        assert tool.max_files == 25
+        assert tool.timeout == 600.0
+        assert tool.max_files == 200
         assert (
             tool.description
             == "Cross-platform static analysis for security vulnerabilities and code quality issues"
@@ -290,8 +290,8 @@ class TestWindowsSecurityTool:
 
         assert tool.name == "windows_security"
         assert tool.category == "security"
-        assert tool.timeout == 30.0
-        assert tool.max_files == 20
+        assert tool.timeout == 120.0
+        assert tool.max_files == 50
         assert tool.get_required_command() == "bandit"
 
     @pytest.mark.asyncio
