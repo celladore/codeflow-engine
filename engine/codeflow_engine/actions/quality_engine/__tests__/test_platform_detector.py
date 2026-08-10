@@ -226,8 +226,6 @@ class TestPlatformDetector:
 
     def test_tool_categories(self):
         """Test tool categorization."""
-        detector = PlatformDetector()
-
         # Test that tools are properly categorized
         all_tools = ["ruff", "mypy", "bandit", "codeql", "semgrep", "windows_security"]
 
@@ -239,8 +237,11 @@ class TestPlatformDetector:
 
         # These should be in the windows_careful set
 
-        # Verify categorization logic
+        # Verify categorization logic. PlatformDetector caches is_windows in __init__,
+        # so it must be constructed inside the patch — building it outside made this
+        # test assert against the real host and pass only on Windows.
         with patch("platform.system", return_value="Windows"):
+            detector = PlatformDetector()
             available_tools = detector.get_available_tools(all_tools)
 
             for tool in windows_compatible:
