@@ -4,7 +4,15 @@ Simplified tests for Quality Engine core functionality.
 
 import pytest
 
+from codeflow_engine.actions.quality_engine import engine as engine_module
+from codeflow_engine.actions.quality_engine.__tests__.engine_fixtures import (
+    STUB_TOOL_NAME,
+    make_engine,
+    make_stub_tool_class,
+)
 from codeflow_engine.actions.quality_engine.models import QualityOutputs
+from codeflow_engine.actions.quality_engine.tool_runner import run_tool
+from codeflow_engine.actions.quality_engine.tools.registry import ToolRegistry
 from codeflow_engine.utils.volume_utils import QualityMode
 
 
@@ -31,7 +39,9 @@ class TestQualityEngineSimple:
             files_modified=["test.py"],
             issues_by_tool={"ruff": [{"issue": "test"}]},
             files_by_tool={"ruff": ["test.py"]},
+            tool_execution_times={"ruff": 1.5},
             summary="Test summary",
+            ai_enhanced=False,
         )
 
         assert result.success is True
@@ -39,6 +49,14 @@ class TestQualityEngineSimple:
         assert result.total_issues_fixed == 2
         assert "test.py" in result.files_modified
         assert "ruff" in result.issues_by_tool
+        assert result.tool_execution_times == {"ruff": 1.5}
+        assert result.ai_enhanced is False
+
+        # Everything the engine only fills in sometimes stays optional.
+        assert result.ai_summary is None
+        assert result.auto_fix_applied is False
+        assert result.fix_summary is None
+        assert result.fix_errors is None
 
     def test_quality_inputs_model(self):
         """Test QualityInputs model creation."""
@@ -90,20 +108,22 @@ class TestQualityEngineSimple:
 class TestQualityEngineIntegration:
     """Integration tests for Quality Engine."""
 
-    @pytest.mark.asyncio
-    async def test_engine_initialization(self):
+    def test_engine_initialization(self):
         """Test Quality Engine initialization."""
-        try:
-            from codeflow_engine.actions.quality_engine.engine import QualityEngine
+        engine = make_engine(tool_names=(STUB_TOOL_NAME,))
 
-            engine = QualityEngine()
+        # Entry points callers actually use.
+        assert callable(engine.execute)
+        assert callable(engine.run)
 
-            # Test basic attributes
-            assert hasattr(engine, "execute")
-            assert hasattr(engine, "_run_tools")
+        # Collaborators the constructor is responsible for wiring up.
+        assert isinstance(engine.tool_registry, ToolRegistry)
+        assert set(engine.tools) == {STUB_TOOL_NAME}
+        assert engine.platform_detector is not None
 
-        except Exception as e:
-            pytest.fail(f"Failed to initialize QualityEngine: {e}")
+        # Tools are run through the module-level run_tool, not an engine method,
+        # which is the seam tests patch to keep real linters out of the run.
+        assert engine_module.run_tool is run_tool
 
     @pytest.mark.asyncio
     async def test_platform_detector(self):
@@ -121,20 +141,22 @@ class TestQualityEngineIntegration:
         except Exception as e:
             pytest.fail(f"Failed to test PlatformDetector: {e}")
 
-    @pytest.mark.asyncio
-    async def test_tool_registry(self):
+    def test_tool_registry(self):
         """Test tool registry functionality."""
-        try:
-            from codeflow_engine.actions.quality_engine.tools.registry import ToolRegistry
+        registry = ToolRegistry()
+        assert registry.get_all_tools() == []
 
-            registry = ToolRegistry()
+        stub_class = make_stub_tool_class(STUB_TOOL_NAME)
+        assert registry.register(stub_class) is stub_class
 
-            # Test basic functionality
-            assert hasattr(registry, "get_tools")
-            assert hasattr(registry, "register_tool")
+        # register() instantiates the class and keys it on the tool's own name.
+        assert registry.get_available_tools() == [STUB_TOOL_NAME]
+        assert [tool.name for tool in registry.get_all_tools()] == [STUB_TOOL_NAME]
+        assert isinstance(registry.get_tool(STUB_TOOL_NAME), stub_class)
+        assert registry.get_tool_class(STUB_TOOL_NAME) is stub_class
 
-        except Exception as e:
-            pytest.fail(f"Failed to test ToolRegistry: {e}")
+        with pytest.raises(KeyError):
+            registry.get_tool("not-registered")
 
 
 if __name__ == "__main__":
