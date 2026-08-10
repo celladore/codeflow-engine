@@ -49,10 +49,22 @@ jobs:
       - name: Install package
         run: poetry install --only-root
 
+      # Runs both test trees for coverage. Still continue-on-error because tests/ has
+      # 75 pre-existing failures and 56 errors that this step has been masking; making
+      # it gate today would just turn master red. Tracked separately — remove this line
+      # once tests/ is clean, and delete the ratchet step below when you do.
       - name: Run tests with coverage
         continue-on-error: true
         run: |
           poetry run pytest --cov=codeflow_engine --cov-report=xml --cov-report=term --cov-report=html
+
+      # Ratchet: the quality_engine tree is green (197 passed), so it gates for real.
+      # Without this the tree would be collected but still unable to fail the build,
+      # which is how it drifted in the first place. Re-runs those 197 (~1 min) rather
+      # than inheriting the step above's continue-on-error.
+      - name: Enforce quality_engine tests
+        run: |
+          poetry run pytest codeflow_engine/actions/quality_engine/__tests__
 
       - name: Upload coverage to Codecov
         uses: codecov/codecov-action@v4
