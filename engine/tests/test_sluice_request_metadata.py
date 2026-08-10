@@ -1,6 +1,6 @@
 """Guards the Sluice request-metadata contract (ADR 10, raised to MUST by ADR 17).
 
-These tests assert the *contract* — what the gateway requires — not what the code
+These tests assert the *contract* â€” what the gateway requires â€” not what the code
 currently happens to send. That distinction is the reason this file exists.
 
 The same contract was silently violated for months in house-of-veritas: the call
@@ -12,7 +12,7 @@ cost rollup only looks wrong to someone already suspicious.
 So: every assertion below is written against
 `phoenixvc/sluice` docs/architecture/17-mandatory-request-metadata.md. If an
 assertion here ever disagrees with the implementation, the implementation is what
-moves — unless the ADR itself changed, in which case update the citation too.
+moves â€” unless the ADR itself changed, in which case update the citation too.
 
 codeflow-engine's virtual key carries no `use:` in the gateway's keys.yaml, which
 classifies it as a *service*: enforced, not exempt.
@@ -40,7 +40,7 @@ from codeflow_engine.core.llm.sluice import (
 from codeflow_engine.core.llm.sluice_provider import SluiceProvider
 
 # ADR 10 naming rule, unchanged by ADR 17: `app` and `agent` become Prometheus label
-# values, so they must be lowercase kebab-case — stable, one token per dimension.
+# values, so they must be lowercase kebab-case â€” stable, one token per dimension.
 KEBAB_CASE = re.compile(r"^[a-z0-9]+(-[a-z0-9]+)*$")
 
 SLUICE_BASE_URL = "https://litellm.sluice.example"
@@ -68,7 +68,7 @@ def recorder(monkeypatch: pytest.MonkeyPatch) -> _CompletionsRecorder:
     """Install a fake `openai` module so tests assert on the request, not the network.
 
     Stubbing at the module boundary rather than patching the provider's `client`
-    attribute keeps `_initialize_client` in the code path — that is where the
+    attribute keeps `_initialize_client` in the code path â€” that is where the
     base_url and api_key actually get bound.
     """
     completions = _CompletionsRecorder()
@@ -144,7 +144,7 @@ class TestRequiredFields:
 
 
 class TestNamingRules:
-    """ADR 10 naming rules — violations are counted, not rejected, so nothing else catches them."""
+    """ADR 10 naming rules â€” violations are counted, not rejected, so nothing else catches them."""
 
     def test_prometheus_labelled_fields_are_kebab_case(
         self, recorder: _CompletionsRecorder, sluice_env: None
@@ -199,7 +199,7 @@ class TestClosedLabelSet:
 
 
 class TestUntaggedTrafficIsRefused:
-    """An untagged request is accepted by the gateway today — local failure is the only signal."""
+    """An untagged request is accepted by the gateway today â€” local failure is the only signal."""
 
     def test_sluice_route_without_an_agent_refuses_to_send(
         self, recorder: _CompletionsRecorder, sluice_env: None
@@ -300,7 +300,7 @@ class TestUntaggedProviderStacksCannotReachSluice:
     ) -> None:
         from codeflow_engine.actions.llm.providers import OpenAIProvider
 
-        # Same host, cosmetically different URL — must not slip past the guard.
+        # Same host, cosmetically different URL â€” must not slip past the guard.
         with pytest.raises(SluiceMetadataError):
             OpenAIProvider(
                 {"api_key": "sk-test", "base_url": f"{SLUICE_BASE_URL}/v1/"}
@@ -439,3 +439,315 @@ class TestConfiguration:
         monkeypatch.setenv("SLUICE_BASE_URL", f"{SLUICE_BASE_URL}/")
         monkeypatch.setenv("SLUICE_API_KEY", "sk-test")
         assert SluiceConfig.require_from_env().base_url == SLUICE_BASE_URL
+
+
+class TestAsyncProviderStackCannotReachSluice:
+    """`ai.core` is a third provider stack, async, and sends no metadata at all.
+
+    It is the easiest of the three to point at the gateway by accident, because it
+    never passes `base_url` to the SDK: `AsyncOpenAI(api_key=...)` falls back to
+    `OPENAI_BASE_URL`, and `AsyncAnthropic` to `ANTHROPIC_BASE_URL`. So one
+    environment variable — no code change, no config, nothing in a diff to notice —
+    reroutes every request in this stack to Sluice with no `metadata` block.
+
+    A guard that only inspected config would pass most of these.
+    """
+
+    @pytest.mark.asyncio
+    async def test_refuses_a_gateway_base_url_in_config(self, sluice_env: None) -> None:
+        from codeflow_engine.ai.core.base import OpenAIProvider as AsyncOpenAIProvider
+
+        with pytest.raises(SluiceMetadataError):
+            await AsyncOpenAIProvider().initialize(
+                {"api_key": "sk-vendor", "base_url": SLUICE_BASE_URL}
+            )
+
+    @pytest.mark.asyncio
+    async def test_refuses_a_gateway_reached_only_through_the_sdk_env_var(
+        self, sluice_env: None, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        from codeflow_engine.ai.core.base import OpenAIProvider as AsyncOpenAIProvider
+
+        # No base_url anywhere in config — the env var alone decides the endpoint.
+        monkeypatch.setenv("OPENAI_BASE_URL", SLUICE_BASE_URL)
+
+        with pytest.raises(SluiceMetadataError):
+            await AsyncOpenAIProvider().initialize({"api_key": "sk-vendor"})
+
+    @pytest.mark.asyncio
+    async def test_refuses_an_anthropic_gateway_route(
+        self, sluice_env: None, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        from codeflow_engine.ai.core.base import (
+            AnthropicProvider as AsyncAnthropicProvider,
+        )
+
+        monkeypatch.setenv("ANTHROPIC_BASE_URL", SLUICE_BASE_URL)
+
+        with pytest.raises(SluiceMetadataError):
+            await AsyncAnthropicProvider().initialize({"api_key": "sk-vendor"})
+
+    @pytest.mark.asyncio
+    async def test_refusal_precedes_the_credential_check(
+        self, sluice_env: None, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        # A gateway-pointed provider violates the contract whether or not it also
+        # has a key, and the contract is the useful thing to report about it.
+        from codeflow_engine.ai.core.base import OpenAIProvider as AsyncOpenAIProvider
+
+        monkeypatch.setenv("OPENAI_BASE_URL", SLUICE_BASE_URL)
+
+        with pytest.raises(SluiceMetadataError):
+            await AsyncOpenAIProvider().initialize({})
+
+    @pytest.mark.asyncio
+    @pytest.mark.parametrize(
+        "equivalent",
+        [
+            f"{SLUICE_BASE_URL}:443",
+            f"{SLUICE_BASE_URL}/v1",
+            f"{SLUICE_BASE_URL}/",
+            "https://LITELLM.SLUICE.EXAMPLE",
+        ],
+    )
+    async def test_cosmetic_url_differences_do_not_evade_the_guard(
+        self, sluice_env: None, monkeypatch: pytest.MonkeyPatch, equivalent: str
+    ) -> None:
+        from codeflow_engine.ai.core.base import OpenAIProvider as AsyncOpenAIProvider
+
+        monkeypatch.setenv("OPENAI_BASE_URL", equivalent)
+
+        with pytest.raises(SluiceMetadataError):
+            await AsyncOpenAIProvider().initialize({"api_key": "sk-vendor"})
+
+    @pytest.mark.asyncio
+    async def test_guard_holds_when_only_the_gateway_url_is_configured(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        # A provider pointed at the gateway with its own vendor key is exactly the
+        # case worth catching, so the guard must not key off SLUICE_API_KEY.
+        from codeflow_engine.ai.core.base import OpenAIProvider as AsyncOpenAIProvider
+
+        monkeypatch.setenv("SLUICE_BASE_URL", SLUICE_BASE_URL)
+        monkeypatch.delenv("SLUICE_API_KEY", raising=False)
+        monkeypatch.setenv("OPENAI_BASE_URL", SLUICE_BASE_URL)
+
+        with pytest.raises(SluiceMetadataError):
+            await AsyncOpenAIProvider().initialize({"api_key": "sk-vendor"})
+
+    @pytest.mark.asyncio
+    async def test_vendor_endpoints_are_unaffected(
+        self, sluice_env: None, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        # The guard binds Sluice routes only; a normal vendor route must still work.
+        from codeflow_engine.ai.core.base import OpenAIProvider as AsyncOpenAIProvider
+
+        monkeypatch.setenv("OPENAI_BASE_URL", "https://api.openai.com/v1")
+        provider = AsyncOpenAIProvider()
+        await provider.initialize({"api_key": "sk-vendor"})
+
+        assert provider._is_initialized
+
+    @pytest.mark.asyncio
+    async def test_no_configured_gateway_means_no_refusal(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        # The guard is gateway-relative, not a blanket ban on unusual base URLs:
+        # with no SLUICE_BASE_URL there is no gateway to send untagged traffic to.
+        from codeflow_engine.ai.core.base import OpenAIProvider as AsyncOpenAIProvider
+
+        monkeypatch.delenv("SLUICE_BASE_URL", raising=False)
+        monkeypatch.setenv("OPENAI_BASE_URL", SLUICE_BASE_URL)
+        provider = AsyncOpenAIProvider()
+        await provider.initialize({"api_key": "sk-vendor"})
+
+        assert provider._is_initialized
+
+    @pytest.mark.asyncio
+    async def test_manager_surfaces_the_refusal_rather_than_dropping_the_provider(
+        self, sluice_env: None, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        # Provider registration swallows exceptions and logs a warning, so a guard
+        # firing there would silently remove the provider — the same invisible
+        # failure the contract exists to prevent. It must fire on the path that
+        # actually builds the client, where it propagates to the caller.
+        from codeflow_engine.ai.core.providers.manager import LLMProviderManager
+        from codeflow_engine.config import CodeFlowConfig
+
+        monkeypatch.setenv("OPENAI_API_KEY", "sk-vendor")
+        monkeypatch.delenv("ANTHROPIC_API_KEY", raising=False)
+        monkeypatch.setenv("OPENAI_BASE_URL", SLUICE_BASE_URL)
+
+        manager = LLMProviderManager(CodeFlowConfig())
+
+        with pytest.raises(SluiceMetadataError):
+            await manager.initialize()
+
+
+class TestQualityEngineRoutesThroughSluice:
+    """The quality engine's AI analysis, tagged `quality-analyzer`."""
+
+    @pytest.mark.asyncio
+    async def test_prefers_the_gateway_when_it_is_configured(
+        self,
+        recorder: _CompletionsRecorder,
+        sluice_env: None,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        from codeflow_engine.actions.quality_engine.ai import initialize_llm_manager
+
+        # A vendor key is present too, so this asserts precedence rather than
+        # merely that sluice is the only option available.
+        monkeypatch.setenv("OPENAI_API_KEY", "sk-vendor")
+        manager = await initialize_llm_manager()
+
+        assert manager is not None
+        assert manager.default_provider == "sluice"
+        assert "openai" in manager.providers, "vendor fallbacks were lost"
+
+    @pytest.mark.asyncio
+    async def test_analysis_requests_are_tagged(
+        self,
+        recorder: _CompletionsRecorder,
+        sluice_env: None,
+        monkeypatch: pytest.MonkeyPatch,
+        tmp_path: Any,
+    ) -> None:
+        from codeflow_engine.actions.quality_engine.ai import (
+            initialize_llm_manager,
+            run_ai_analysis,
+        )
+
+        monkeypatch.setenv("OPENAI_API_KEY", "sk-vendor")
+        target = tmp_path / "sample.py"
+        target.write_text("x = 1\n", encoding="utf-8")
+
+        manager = await initialize_llm_manager()
+        await run_ai_analysis([str(target)], manager)
+
+        assert sent_metadata(recorder) == {
+            "app": "codeflow-engine",
+            "agent": "quality-analyzer",
+        }
+
+    @pytest.mark.asyncio
+    async def test_does_not_ask_the_gateway_for_a_vendor_model(
+        self,
+        recorder: _CompletionsRecorder,
+        sluice_env: None,
+        monkeypatch: pytest.MonkeyPatch,
+        tmp_path: Any,
+    ) -> None:
+        # The gateway key is provisioned for Sluice's own aliases, not vendor model
+        # names, so the deployment-configured alias must win. A hardcoded `gpt-4`
+        # would reach the gateway correctly tagged and still fail.
+        from codeflow_engine.actions.quality_engine.ai import (
+            initialize_llm_manager,
+            run_ai_analysis,
+        )
+
+        monkeypatch.setenv("OPENAI_API_KEY", "sk-vendor")
+        monkeypatch.setenv("SLUICE_MODEL", "cheap-fast")
+        target = tmp_path / "sample.py"
+        target.write_text("x = 1\n", encoding="utf-8")
+
+        manager = await initialize_llm_manager()
+        await run_ai_analysis([str(target)], manager)
+
+        assert recorder.calls[0]["model"] == "cheap-fast"
+
+    @pytest.mark.asyncio
+    async def test_naming_a_vendor_provider_opts_out_of_the_gateway(
+        self,
+        recorder: _CompletionsRecorder,
+        sluice_env: None,
+        monkeypatch: pytest.MonkeyPatch,
+        tmp_path: Any,
+    ) -> None:
+        # Explicit beats default. The opt-out must stay available, and must not
+        # send the gateway's metadata block to a vendor that did not ask for it.
+        from codeflow_engine.actions.quality_engine.ai import (
+            initialize_llm_manager,
+            run_ai_analysis,
+        )
+
+        monkeypatch.setenv("OPENAI_API_KEY", "sk-vendor")
+        target = tmp_path / "sample.py"
+        target.write_text("x = 1\n", encoding="utf-8")
+
+        manager = await initialize_llm_manager()
+        await run_ai_analysis([str(target)], manager, provider_name="openai")
+
+        assert len(recorder.calls) == 1
+        assert "extra_body" not in recorder.calls[0]
+
+    @pytest.mark.asyncio
+    async def test_no_gateway_configured_leaves_vendor_routing_intact(
+        self, recorder: _CompletionsRecorder, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        from codeflow_engine.actions.quality_engine.ai import initialize_llm_manager
+
+        monkeypatch.delenv("SLUICE_BASE_URL", raising=False)
+        monkeypatch.delenv("SLUICE_API_KEY", raising=False)
+        monkeypatch.setenv("OPENAI_API_KEY", "sk-vendor")
+
+        manager = await initialize_llm_manager()
+
+        assert manager is not None
+        assert manager.default_provider == "openai"
+
+    @pytest.mark.asyncio
+    async def test_initialization_sends_no_probe_request(
+        self,
+        recorder: _CompletionsRecorder,
+        sluice_env: None,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        # A test completion per initialization is billed spend tagged
+        # `quality-analyzer` that analyses nothing.
+        from codeflow_engine.actions.quality_engine.ai import initialize_llm_manager
+
+        monkeypatch.setenv("OPENAI_API_KEY", "sk-vendor")
+        await initialize_llm_manager()
+
+        assert recorder.calls == []
+
+    @pytest.mark.asyncio
+    async def test_the_second_initializer_shares_the_same_tag(
+        self,
+        recorder: _CompletionsRecorder,
+        sluice_env: None,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        # ai_handler had its own initializer building a separate provider stack.
+        # Two initializers meant only one of them could be routed, leaving the
+        # other a standing untagged path to an LLM for the same calling feature.
+        from codeflow_engine.actions.quality_engine.ai.ai_handler import (
+            initialize_llm_manager as handler_initialize,
+        )
+
+        monkeypatch.setenv("OPENAI_API_KEY", "sk-vendor")
+        manager = await handler_initialize()
+
+        assert manager is not None
+        assert manager.providers["sluice"].sluice_agent is SluiceAgent.QUALITY_ANALYZER
+
+    @pytest.mark.asyncio
+    async def test_the_code_analyzer_shares_the_same_tag(
+        self,
+        recorder: _CompletionsRecorder,
+        sluice_env: None,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        # AICodeAnalyzer is a sub-component of the same calling feature, so it
+        # reports as `quality-analyzer` rather than spending a new time series.
+        from codeflow_engine.actions.quality_engine.ai import (
+            AICodeAnalyzer,
+            initialize_llm_manager,
+        )
+
+        monkeypatch.setenv("OPENAI_API_KEY", "sk-vendor")
+        manager = await initialize_llm_manager()
+        await AICodeAnalyzer(manager).analyze_code("sample.py", "x = 1\n")
+
+        assert sent_metadata(recorder)["agent"] == "quality-analyzer"

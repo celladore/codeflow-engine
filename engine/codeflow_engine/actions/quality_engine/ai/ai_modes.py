@@ -113,8 +113,8 @@ class AIMode(StrEnum):
 async def run_ai_analysis(
     files: list[str],
     llm_manager: LLMProviderManager,
-    provider_name: str = "openai",
-    model: str = "gpt-4",
+    provider_name: str | None = None,
+    model: str | None = None,
     prompt: str = CODE_REVIEW_PROMPT,
 ) -> dict[str, Any] | None:
     """
@@ -123,8 +123,14 @@ async def run_ai_analysis(
     Args:
         files: List of file paths to analyze
         llm_manager: LLM provider manager
-        provider_name: Name of the LLM provider to use
-        model: Model name to use for analysis
+        provider_name: LLM provider to use. None defers to the manager's default,
+            which is the first provider it was configured with — Sluice when the
+            gateway is configured, the first available vendor otherwise. Naming a
+            vendor here is an explicit opt-out of the gateway, so it must not be the
+            default.
+        model: Model name to use. None defers to the chosen provider's default
+            model; a vendor model name would not resolve against the gateway, whose
+            key is provisioned for its own aliases.
 
     Returns:
         Dict containing AI analysis results or None if analysis fails
@@ -151,10 +157,11 @@ async def run_ai_analysis(
         # Create analysis prompt
         analysis_prompt = _create_analysis_prompt(file_contents)
 
-        # Get LLM response
-        request = {
-            "provider": provider_name,
-            "model": model,
+        # Get LLM response. `provider` and `model` are omitted rather than set to
+        # None when unspecified: the manager reads them with `.pop(key, default)`,
+        # so a present-but-None key would defeat the default instead of deferring
+        # to it.
+        request: dict[str, Any] = {
             "messages": [
                 {"role": "system", "content": prompt},
                 {"role": "user", "content": analysis_prompt},
@@ -162,12 +169,21 @@ async def run_ai_analysis(
             "temperature": 0.1,
             "response_format": {"type": "json_object"},
         }
+        if provider_name:
+            request["provider"] = provider_name
+        if model:
+            request["model"] = model
 
         response = llm_manager.complete(request)
 
         if not response or not response.content:
             logger.warning("No response received from LLM")
             return None
+
+        # Report what was actually used, not what was asked for — when either was
+        # left to the manager, echoing the request would report None.
+        used_provider = provider_name or getattr(llm_manager, "default_provider", None)
+        used_model = model or getattr(response, "model", None)
 
         # Parse response
         try:
@@ -193,8 +209,8 @@ async def run_ai_analysis(
 
             # Add metadata
             ai_result["files_analyzed"] = list(file_contents.keys())
-            ai_result["provider"] = provider_name
-            ai_result["model"] = model
+            ai_result["provider"] = used_provider
+            ai_result["model"] = used_model
 
             logger.info("AI analysis completed for %d files", len(file_contents))
 
@@ -207,8 +223,8 @@ async def run_ai_analysis(
                 "summary": "AI analysis completed but response format was invalid",
                 "priorities": [],
                 "files_analyzed": list(file_contents.keys()),
-                "provider": provider_name,
-                "model": model,
+                "provider": used_provider,
+                "model": used_model,
                 "error": "JSON parsing failed",
             }
         else:
@@ -479,7 +495,9 @@ def _split_content_into_chunks(content: str, max_chunk_size: int) -> list[str]:
 
 
 async def analyze_code_architecture(
-    files: list[str], llm_manager: LLMProviderManager, provider_name: str = "openai"
+    files: list[str],
+    llm_manager: LLMProviderManager,
+    provider_name: str | None = None,
 ) -> dict[str, Any] | None:
     """
     Run architectural analysis on the provided files.
@@ -499,7 +517,9 @@ async def analyze_code_architecture(
 
 
 async def analyze_security_issues(
-    files: list[str], llm_manager: LLMProviderManager, provider_name: str = "openai"
+    files: list[str],
+    llm_manager: LLMProviderManager,
+    provider_name: str | None = None,
 ) -> dict[str, Any] | None:
     """
     Run security analysis on the provided files.

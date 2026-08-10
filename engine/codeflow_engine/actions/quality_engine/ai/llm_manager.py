@@ -4,70 +4,74 @@ LLM Manager for Quality Engine
 Manages LLM interactions for quality analysis.
 """
 
-import asyncio
 import logging
 import os
 from typing import Any
 
-from codeflow_engine.ai.core.base import LLMMessage
-from codeflow_engine.ai.core.providers.manager import LLMProviderManager
-from codeflow_engine.config import CodeFlowConfig
+from codeflow_engine.actions.llm.manager import ActionLLMProviderManager
+from codeflow_engine.core.llm.sluice import SluiceAgent, SluiceConfig
 
 logger = logging.getLogger(__name__)
 
 
-async def initialize_llm_manager() -> LLMProviderManager | None:
+async def initialize_llm_manager() -> ActionLLMProviderManager | None:
     """
     Initialize the LLM provider manager for AI-enhanced quality analysis.
 
     Returns:
-        LLMProviderManager: Configured LLM manager or None if initialization fails
+        ActionLLMProviderManager: Configured LLM manager or None if no provider is
+        available.
     """
     try:
-        # Basic configuration for quality analysis
-        config = {
-            "providers": {
-                "openai": {
-                    "api_key": os.getenv("OPENAI_API_KEY", ""),
-                    "default_model": "gpt-4",
-                    "max_tokens": 4000,
-                    "temperature": 0.1,
-                },
-                "anthropic": {
-                    "api_key": os.getenv("ANTHROPIC_API_KEY", ""),
-                    "default_model": "claude-3-sonnet-20240229",
-                    "max_tokens": 4000,
-                    "temperature": 0.1,
-                },
-            },
-            "fallback_order": ["openai", "anthropic"],
-            "default_provider": "openai",
+        # Ordered: the first entry becomes the manager's default provider, and the
+        # rest stay as fallbacks.
+        providers: dict[str, dict[str, Any]] = {}
+
+        # Prefer the Sluice gateway when configured: it centralises spend tracking
+        # and enforces per-key budgets. Added before the vendor providers because the
+        # default is derived from insertion order; those stay as fallbacks for
+        # deployments with no gateway. Tagged `quality-analyzer` per Sluice ADR 17.
+        #
+        # One tag covers the whole quality engine's AI analysis — ai_modes, the
+        # AICodeAnalyzer and the security/architecture prompt variants are all the
+        # same calling feature. Splitting them per prompt would multiply Prometheus
+        # series to answer a question nobody asks; "what did quality analysis cost"
+        # is the useful rollup.
+        if SluiceConfig.from_env() is not None:
+            providers["sluice"] = {"agent": SluiceAgent.QUALITY_ANALYZER}
+            logger.info("Sluice gateway provider configured for quality analysis")
+
+        providers["openai"] = {
+            "api_key": os.getenv("OPENAI_API_KEY", ""),
+            "default_model": "gpt-4",
+            "max_tokens": 4000,
+            "temperature": 0.1,
+        }
+        providers["anthropic"] = {
+            "api_key": os.getenv("ANTHROPIC_API_KEY", ""),
+            "default_model": "claude-3-sonnet-20240229",
+            "max_tokens": 4000,
+            "temperature": 0.1,
         }
 
-        llm_manager = LLMProviderManager(CodeFlowConfig())
+        config: dict[str, Any] = {
+            "providers": providers,
+            "fallback_order": [name for name in providers if name != "sluice"],
+            "default_provider": next(iter(providers)),
+        }
 
-        # Guard optional initialize() call
-        if hasattr(llm_manager, "initialize"):
-            await llm_manager.initialize()
+        llm_manager = ActionLLMProviderManager(config)
 
-        # Test the connection
-        test_messages = [
-            LLMMessage(role="system", content="You are a helpful assistant."),
-            LLMMessage(role="user", content="Test message"),
-        ]
-        test_response = await llm_manager.complete(
-            test_messages,
-            provider="openai",
-            model="gpt-4",
-            temperature=0.1,
-        )
-
-        if test_response and test_response.content:
-            logger.info("LLM manager initialized successfully")
-            return llm_manager
-        else:
-            logger.warning("LLM manager test failed - no response received")
+        # Availability is self-reported by each provider, so no probe request is
+        # needed. A test completion per initialization would be billed spend tagged
+        # `quality-analyzer` that analyses nothing.
+        available = llm_manager.get_available_providers()
+        if not available:
+            logger.warning("No LLM providers available for AI-enhanced analysis")
             return None
+
+        logger.info("LLM manager initialized with providers: %s", available)
+        return llm_manager
 
     except Exception as e:
         logger.exception(f"Failed to initialize LLM manager: {e}")

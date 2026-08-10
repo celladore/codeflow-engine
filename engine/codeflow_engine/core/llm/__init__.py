@@ -11,6 +11,8 @@ from codeflow_engine.core.llm.sluice import (
     SluiceMetadataError,
     SluiceNotConfiguredError,
     build_request_metadata,
+    is_sluice_base_url,
+    is_sluice_route,
     sluice_extra_body,
 )
 from codeflow_engine.core.llm.sluice_provider import SluiceProvider
@@ -28,5 +30,7 @@ __all__ = [
     "SluiceNotConfiguredError",
     "SluiceProvider",
     "build_request_metadata",
+    "is_sluice_base_url",
+    "is_sluice_route",
     "sluice_extra_body",
 ]
