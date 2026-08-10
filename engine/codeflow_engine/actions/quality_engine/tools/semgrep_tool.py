@@ -17,8 +17,13 @@ class SemgrepTool(Tool):
 
     def __init__(self) -> None:
         super().__init__()
-        self.default_timeout = 10.0  # Reduce timeout to 10 seconds for faster execution
-        self.max_files_per_run = 25  # Reduce limit for faster execution
+        # Sized as a hang detector, not a performance budget. Semgrep's cost here is
+        # dominated by registry rule loading (the default rules="auto" config sends no
+        # --config, so rules are fetched per run), which measured 50-110s even for a
+        # single file; a full 200-file scan measured 137-332s. Anything under that turns
+        # every semgrep run into a timeout error with zero findings.
+        self.default_timeout = 600.0
+        self.max_files_per_run = 200
 
     @property
     def name(self) -> str:

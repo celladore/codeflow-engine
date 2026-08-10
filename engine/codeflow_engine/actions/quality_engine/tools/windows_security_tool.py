@@ -17,8 +17,11 @@ class WindowsSecurityTool(Tool):
 
     def __init__(self) -> None:
         super().__init__()
-        self.default_timeout = 30.0  # Reduce timeout to 30 seconds
-        self.max_files_per_run = 20  # Reduce limit to prevent hanging
+        # Sized as a hang detector, not a performance budget. _run_bandit shells out to
+        # `bandit -r .`, so runtime tracks the whole repo rather than max_files_per_run;
+        # that measured 29-48s here, straddling the previous 30s limit.
+        self.default_timeout = 120.0
+        self.max_files_per_run = 50
 
     @property
     def name(self) -> str:
