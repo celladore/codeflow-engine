@@ -45,11 +45,15 @@ class SluiceProvider(OpenAICompatibleProvider):
         sluice = SluiceConfig.require_from_env()
         merged: dict[str, Any] = {
             "name": "sluice",
+            "default_model": sluice.model,
+            # Caller config first, so it can set model, timeouts and the like...
+            **(config or {}),
+            # ...but never the connection or the tag. Letting a caller override
+            # `base_url` while this class supplies `api_key` would send the Sluice
+            # credential to an arbitrary OpenAI-compatible endpoint, and overriding
+            # `sluice_agent` would quietly drop the ADR 17 tag.
             "base_url": sluice.base_url,
             "api_key": sluice.api_key,
-            "default_model": sluice.model,
-            **(config or {}),
-            # Last, so a caller-supplied config dict cannot quietly drop the tag.
             "sluice_agent": resolved_agent,
         }
         super().__init__(merged)

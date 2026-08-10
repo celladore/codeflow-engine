@@ -85,8 +85,11 @@ class ActionLLMProviderManager:
                 # Structurally compatible with this stack's provider interface
                 # (`complete`, `is_available`, `default_model`) and returns the same
                 # LLMResponse, which actions.llm.types re-exports from core.
+                # .get rather than [] so a config missing `agent` surfaces as
+                # SluiceMetadataError below and leaves the vendor fallbacks intact,
+                # instead of a KeyError aborting the whole manager.
                 self.providers["sluice"] = cast(
-                    BaseLLMProvider, SluiceProvider(sluice_config["agent"])
+                    BaseLLMProvider, SluiceProvider(sluice_config.get("agent", ""))
                 )
             except (SluiceNotConfiguredError, SluiceMetadataError) as e:
                 logger.warning("Sluice provider not available: %s", e)

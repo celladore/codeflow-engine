@@ -134,19 +134,46 @@ class SluiceConfig:
         return config
 
 
+def _origin(url: str | None) -> tuple[str, int | None] | None:
+    """Normalise a URL to (hostname, effective port), or None if unusable.
+
+    Compared on origin rather than raw ``netloc`` so that cosmetic differences —
+    a trailing slash, a path, a case difference, or an explicit ``:443`` on an
+    https URL — cannot disguise the same endpoint.
+    """
+    if not url or not str(url).strip():
+        return None
+    raw = str(url).strip()
+    parts = urlsplit(raw if "//" in raw else f"//{raw}")
+    hostname = (parts.hostname or "").lower()
+    if not hostname:
+        return None
+    try:
+        explicit_port = parts.port
+    except ValueError:  # malformed port; treat as not-the-gateway rather than crash
+        return None
+    default_ports = {"http": 80, "https": 443}
+    port = explicit_port or default_ports.get((parts.scheme or "https").lower())
+    return hostname, port
+
+
 def is_sluice_base_url(base_url: str | None) -> bool:
     """Whether ``base_url`` addresses the configured Sluice gateway.
 
     Sluice speaks the OpenAI-compatible API, so any provider that accepts a
     ``base_url`` can be pointed at it by configuration alone — which is the easy,
     plausible way to start sending untagged traffic without touching this module.
-    Compared on network location so a path or trailing-slash difference cannot
-    disguise the same host.
+
+    Reads ``SLUICE_BASE_URL`` directly rather than going through
+    :class:`SluiceConfig`, which requires the API key too. A provider pointed at
+    the gateway with its *own* vendor key is exactly the case worth catching, and
+    keying this on the key's presence would switch the guard off for it.
     """
-    sluice = SluiceConfig.from_env()
-    if sluice is None or not base_url:
+    target = _origin(base_url)
+    if target is None:
         return False
-    return urlsplit(str(base_url)).netloc == urlsplit(sluice.base_url).netloc
+    gateway = _origin(os.environ.get("SLUICE_BASE_URL"))
+    return gateway is not None and target == gateway
 
 
 def coerce_agent(agent: SluiceAgent | str) -> SluiceAgent:

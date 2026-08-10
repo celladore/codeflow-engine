@@ -228,6 +228,55 @@ class TestUntaggedTrafficIsRefused:
 
         assert sent_metadata(recorder)["agent"] == "issue-creator"
 
+    def test_caller_config_cannot_redirect_the_gateway_credential(
+        self, recorder: _CompletionsRecorder, sluice_env: None
+    ) -> None:
+        # Overriding base_url while this class supplies api_key would send the
+        # Sluice credential to an arbitrary OpenAI-compatible endpoint.
+        provider = SluiceProvider(
+            SluiceAgent.ISSUE_CREATOR,
+            config={"base_url": "https://attacker.example", "api_key": "sk-other"},
+        )
+
+        assert provider.base_url == SLUICE_BASE_URL
+        assert provider.api_key == "sk-test"
+
+    def test_guard_holds_when_only_the_gateway_url_is_configured(
+        self, recorder: _CompletionsRecorder, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        # A provider pointed at the gateway with its *own* vendor key is exactly
+        # the case worth catching, so the guard must not key off SLUICE_API_KEY.
+        monkeypatch.setenv("SLUICE_BASE_URL", SLUICE_BASE_URL)
+        monkeypatch.delenv("SLUICE_API_KEY", raising=False)
+
+        provider = OpenAICompatibleProvider(
+            {"api_key": "sk-vendor", "base_url": SLUICE_BASE_URL}
+        )
+        response = complete_once(provider)
+
+        assert response.error is not None
+        assert recorder.calls == []
+
+    @pytest.mark.parametrize(
+        "equivalent",
+        [
+            f"{SLUICE_BASE_URL}:443",  # explicit default port
+            f"{SLUICE_BASE_URL}/v1",  # path suffix
+            f"{SLUICE_BASE_URL}/",  # trailing slash
+            "https://LITELLM.SLUICE.EXAMPLE",  # host case
+        ],
+    )
+    def test_cosmetic_url_differences_do_not_evade_the_guard(
+        self, recorder: _CompletionsRecorder, sluice_env: None, equivalent: str
+    ) -> None:
+        provider = OpenAICompatibleProvider(
+            {"api_key": "sk-test", "base_url": equivalent}
+        )
+        response = complete_once(provider)
+
+        assert response.error is not None, f"{equivalent} slipped past the guard"
+        assert recorder.calls == []
+
 
 class TestUntaggedProviderStacksCannotReachSluice:
     """The `actions.llm` stack sends no metadata, so it must not be pointable at Sluice."""
@@ -299,6 +348,18 @@ class TestLintingFixerRoutesThroughSluice:
         # spend to whichever agent happened to be configured.
         manager = ActionLLMProviderManager({"providers": {}})
         assert "sluice" not in manager.providers
+
+    def test_malformed_sluice_config_leaves_vendor_fallbacks_intact(
+        self, recorder: _CompletionsRecorder, sluice_env: None
+    ) -> None:
+        # A sluice block with no `agent` must degrade to "no sluice provider",
+        # not abort construction and take the vendor providers down with it.
+        manager = ActionLLMProviderManager(
+            {"providers": {"sluice": {"model": "cheap-fast"}}}
+        )
+
+        assert "sluice" not in manager.providers
+        assert manager.providers, "vendor providers were lost"
 
     def test_completion_through_the_manager_is_tagged(
         self, recorder: _CompletionsRecorder, sluice_env: None
