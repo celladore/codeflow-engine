@@ -9,6 +9,8 @@ from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from typing import Any
 
+from codeflow_engine.core.llm.sluice import SluiceMetadataError, is_sluice_route
+
 logger = logging.getLogger(__name__)
 
 
@@ -71,6 +73,17 @@ class LLMProvider(ABC):
 
     Provides a unified interface for different AI/LLM services.
     """
+
+    # Environment variable the vendor SDK falls back to when a client is built
+    # without an explicit base_url. Set by subclasses; see _refuse_sluice_route.
+    SDK_BASE_URL_ENV: str = ""
+
+    #: Whether this provider sends the Sluice ADR 17 `metadata.app` /
+    #: `metadata.agent` block on every request. Default false: nothing in this
+    #: stack does. Mirrors the flag of the same name on the `actions.llm` base
+    #: class — a class-level capability, never a config key, so a
+    #: misconfiguration cannot assert compliance it does not have.
+    SUPPORTS_SLUICE_REQUEST_METADATA: bool = False
 
     def __init__(
         self, name: str, description: str = "", version: str = "1.0.0"
@@ -193,6 +206,38 @@ class LLMProvider(ABC):
     def __repr__(self) -> str:
         return self.__str__()
 
+    def _refuse_sluice_route(self, config: dict[str, Any]) -> None:
+        """Refuse to initialize a client that would reach Sluice untagged.
+
+        The providers in this module build their own request bodies through the
+        vendor SDKs and none of them sends the ``metadata.app`` / ``metadata.agent``
+        block Sluice ADR 17 requires. Sluice speaks the OpenAI-compatible API, so
+        pointing one of them at the gateway takes no code change at all — just
+        ``OPENAI_BASE_URL`` or a ``base_url`` in config.
+
+        Both are checked. The SDK reads its own environment variable when no
+        base_url is passed, and :meth:`OpenAIProvider.initialize` does not pass one,
+        so the env var is the *only* thing that decides where those requests go.
+
+        Failing here is the point: the gateway accepts an untagged request today and
+        quietly increments ``untagged_requests_total{key_alias="codeflow-engine"}``,
+        which restarts ADR 17's zero-for-a-week verification window for every other
+        caller — and once enforcement lands, the same request is an HTTP 400.
+        """
+        if self.SUPPORTS_SLUICE_REQUEST_METADATA:
+            return
+        if not is_sluice_route(config.get("base_url"), self.SDK_BASE_URL_ENV):
+            return
+        env_hint = f" or {self.SDK_BASE_URL_ENV}" if self.SDK_BASE_URL_ENV else ""
+        msg = (
+            f"Provider {self.name!r} would send requests to the Sluice gateway "
+            f"(via base_url{env_hint}), but this provider stack does not send the "
+            "metadata.app / metadata.agent fields that Sluice ADR 17 requires. "
+            "Use codeflow_engine.core.llm.SluiceProvider instead, or point this "
+            "provider back at its vendor endpoint."
+        )
+        raise SluiceMetadataError(msg)
+
     def _apply_response_format(
         self, messages: list[LLMMessage], response_format: dict[str, Any] | None
     ) -> list[LLMMessage]:
@@ -250,6 +295,10 @@ class LLMProvider(ABC):
 class OpenAIProvider(LLMProvider):
     """OpenAI LLM provider implementation."""
 
+    # `openai` falls back to this when AsyncOpenAI is built without a base_url,
+    # which is what initialize() does — so this env var alone decides the endpoint.
+    SDK_BASE_URL_ENV: str = "OPENAI_BASE_URL"
+
     def __init__(self) -> None:
         super().__init__(
             name="openai", description="OpenAI GPT models provider", version="1.0.0"
@@ -264,6 +313,11 @@ class OpenAIProvider(LLMProvider):
 
     async def initialize(self, config: dict[str, Any]) -> None:
         """Initialize OpenAI provider."""
+        # Before the key check: a gateway-pointed provider is a contract violation
+        # whether or not it also has credentials, and the contract is the useful
+        # thing to say about it.
+        self._refuse_sluice_route(config)
+
         if "api_key" not in config:
             msg = "OpenAI API key is required"
             raise ValueError(msg)
@@ -434,6 +488,9 @@ class OpenAIProvider(LLMProvider):
 class AnthropicProvider(LLMProvider):
     """Anthropic Claude LLM provider implementation."""
 
+    # `anthropic` falls back to this when AsyncAnthropic is built without a base_url.
+    SDK_BASE_URL_ENV: str = "ANTHROPIC_BASE_URL"
+
     def __init__(self) -> None:
         super().__init__(
             name="anthropic",
@@ -449,6 +506,8 @@ class AnthropicProvider(LLMProvider):
 
     async def initialize(self, config: dict[str, Any]) -> None:
         """Initialize Anthropic provider."""
+        self._refuse_sluice_route(config)
+
         if "api_key" not in config:
             msg = "Anthropic API key is required"
             raise ValueError(msg)

@@ -187,6 +187,21 @@ def is_sluice_base_url(base_url: str | None) -> bool:
     return gateway is not None and target == gateway
 
 
+def is_sluice_route(base_url: str | None, *sdk_base_url_env: str) -> bool:
+    """Whether a client built with ``base_url`` would actually reach the gateway.
+
+    Vendor SDKs fall back to their own environment variable when no ``base_url`` is
+    passed — ``openai`` reads ``OPENAI_BASE_URL``, ``anthropic`` reads
+    ``ANTHROPIC_BASE_URL`` — so a provider that never touches ``base_url`` at all can
+    still be pointed at Sluice by environment alone. Inspecting only the explicit
+    argument would miss exactly that case, which is the cheapest way for an untagged
+    caller to appear: no code change, one env var.
+    """
+    if is_sluice_base_url(base_url):
+        return True
+    return any(is_sluice_base_url(os.environ.get(name)) for name in sdk_base_url_env)
+
+
 def coerce_agent(agent: SluiceAgent | str) -> SluiceAgent:
     """Resolve ``agent`` to a member of the closed set, or raise.
 

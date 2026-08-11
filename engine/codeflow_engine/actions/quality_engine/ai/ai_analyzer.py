@@ -11,8 +11,7 @@ from typing import Any
 
 import structlog
 
-from codeflow_engine.ai.core.base import LLMMessage
-from codeflow_engine.ai.core.providers.manager import LLMProviderManager
+from codeflow_engine.actions.llm.manager import ActionLLMProviderManager
 
 
 logger = structlog.get_logger(__name__)
@@ -33,15 +32,22 @@ class CodeSuggestion:
 class AICodeAnalyzer:
     """
     AI-powered code analyzer that leverages LLMs to provide intelligent code suggestions.
+
+    Sluice tagging is not configured here. It belongs to the manager this analyzer is
+    handed — `initialize_llm_manager` puts the gateway provider first, tagged
+    `quality-analyzer`, and this analyzer is the same calling feature as the rest of
+    the quality engine's AI analysis, so it shares that tag rather than adding a
+    Prometheus series of its own.
     """
 
-    def __init__(self, llm_manager: LLMProviderManager | None = None):
+    def __init__(self, llm_manager: ActionLLMProviderManager | None = None):
         """
         Initialize the AI code analyzer.
 
         Args:
-            llm_manager: LLM provider manager instance. If None, a new one will be created
-                         when analyze_code is called.
+            llm_manager: LLM provider manager instance, as built by
+                         `quality_engine.ai.initialize_llm_manager`. If None, AI
+                         analysis reports itself unavailable.
         """
         self.llm_manager = llm_manager
         self._system_prompt = self._get_system_prompt()
@@ -118,10 +124,24 @@ class AICodeAnalyzer:
             f"'{file_path}'.\n\n```{language}\n{code_content}\n```"
         )
 
-        messages = [
-            LLMMessage(role="system", content=self._system_prompt),
-            LLMMessage(role="user", content=user_prompt),
-        ]
+        # `provider` and `model` are omitted rather than set to None when
+        # unspecified: the manager reads them with `.pop(key, default)`, so a
+        # present-but-None key defeats its default instead of deferring to it — and
+        # that default is the Sluice gateway when one is configured.
+        request: dict[str, Any] = {
+            "messages": [
+                {"role": "system", "content": self._system_prompt},
+                {"role": "user", "content": user_prompt},
+            ],
+            "temperature": 0.3,  # Lower temperature for more deterministic responses
+            "max_tokens": 2000,
+            # ✅ Validated and enforced JSON output per provider
+            "response_format": {"type": "json"},
+        }
+        if provider_name:
+            request["provider"] = provider_name
+        if model:
+            request["model"] = model
 
         try:
             self.logger.info(
@@ -129,20 +149,17 @@ class AICodeAnalyzer:
                 file_path=file_path,
                 provider=provider_name or "default",
             )
-            response = await self.llm_manager.complete(
-                messages,
-                provider=provider_name,
-                model=model,
-                temperature=0.3,  # Lower temperature for more deterministic responses
-                max_tokens=2000,
-                response_format={
-                    "type": "json"
-                },  # ✅ Validated and enforced JSON output per provider
-            )
+            response = self.llm_manager.complete(request)
 
-            if not response:
+            # LLMResponse is a dataclass and so always truthy; a failed call carries
+            # `error` with empty content. Checking truthiness alone would send "" on
+            # to the JSON parser and report a parse failure for what is really a
+            # provider error — including the ADR 17 refusal of an untagged route.
+            if not response or response.error or not response.content:
                 self.logger.error(
-                    "Failed to get AI response for code analysis", file_path=file_path
+                    "Failed to get AI response for code analysis",
+                    file_path=file_path,
+                    error=getattr(response, "error", None),
                 )
                 return {
                     "suggestions": [],

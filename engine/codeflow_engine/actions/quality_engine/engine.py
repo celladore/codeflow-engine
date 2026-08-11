@@ -513,11 +513,15 @@ class QualityEngine(Action):
             if self.llm_manager:
                 from codeflow_engine.actions.quality_engine.ai import run_ai_analysis
 
+                # Both are optional: unset defers to the manager's default provider
+                # and that provider's default model. Hardcoding a vendor and
+                # `gpt-4` here would route past the Sluice gateway even when it is
+                # configured, and ask it for a model its key is not provisioned for.
                 ai_result = await run_ai_analysis(
                     files_to_check,
                     self.llm_manager,
-                    provider_name=inputs.ai_provider or "openai",
-                    model=inputs.ai_model or "gpt-4",
+                    provider_name=inputs.ai_provider,
+                    model=inputs.ai_model,
                 )
 
                 if ai_result:
