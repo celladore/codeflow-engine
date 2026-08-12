@@ -5,6 +5,9 @@ on:
         tags:
             - "orchestration-utils-v*"
 
+concurrency:
+    group: release-orchestration-utils-${{ github.ref }}
+
 jobs:
     release:
         runs-on: ubuntu-latest

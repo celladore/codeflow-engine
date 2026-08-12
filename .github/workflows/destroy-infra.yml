@@ -3,6 +3,9 @@ name: Destroy Infrastructure
 on:
   workflow_dispatch:
 
+concurrency:
+  group: destroy-infra-${{ github.ref }}
+
 jobs:
   destroy-infra:
     name: Destroy Infrastructure

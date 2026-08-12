@@ -5,6 +5,9 @@ on:
         tags:
             - "desktop-v*"
 
+concurrency:
+    group: release-desktop-${{ github.ref }}
+
 jobs:
     release:
         runs-on: ubuntu-latest

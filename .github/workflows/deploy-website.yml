@@ -13,6 +13,9 @@ on:
       - ".github/workflows/deploy-website.yml"
   workflow_dispatch:
 
+concurrency:
+  group: deploy-website-${{ github.event.pull_request.number || github.ref }}
+
 permissions:
   contents: read
   pull-requests: write
