@@ -1,6 +1,6 @@
 """Guards the Sluice request-metadata contract (ADR 10, raised to MUST by ADR 17).
 
-These tests assert the *contract* â€” what the gateway requires â€” not what the code
+These tests assert the *contract* — what the gateway requires — not what the code
 currently happens to send. That distinction is the reason this file exists.
 
 The same contract was silently violated for months in house-of-veritas: the call
@@ -12,7 +12,7 @@ cost rollup only looks wrong to someone already suspicious.
 So: every assertion below is written against
 `phoenixvc/sluice` docs/architecture/17-mandatory-request-metadata.md. If an
 assertion here ever disagrees with the implementation, the implementation is what
-moves â€” unless the ADR itself changed, in which case update the citation too.
+moves — unless the ADR itself changed, in which case update the citation too.
 
 codeflow-engine's virtual key carries no `use:` in the gateway's keys.yaml, which
 classifies it as a *service*: enforced, not exempt.
@@ -40,7 +40,7 @@ from codeflow_engine.core.llm.sluice import (
 from codeflow_engine.core.llm.sluice_provider import SluiceProvider
 
 # ADR 10 naming rule, unchanged by ADR 17: `app` and `agent` become Prometheus label
-# values, so they must be lowercase kebab-case â€” stable, one token per dimension.
+# values, so they must be lowercase kebab-case — stable, one token per dimension.
 KEBAB_CASE = re.compile(r"^[a-z0-9]+(-[a-z0-9]+)*$")
 
 SLUICE_BASE_URL = "https://litellm.sluice.example"
@@ -68,7 +68,7 @@ def recorder(monkeypatch: pytest.MonkeyPatch) -> _CompletionsRecorder:
     """Install a fake `openai` module so tests assert on the request, not the network.
 
     Stubbing at the module boundary rather than patching the provider's `client`
-    attribute keeps `_initialize_client` in the code path â€” that is where the
+    attribute keeps `_initialize_client` in the code path — that is where the
     base_url and api_key actually get bound.
     """
     completions = _CompletionsRecorder()
@@ -144,7 +144,7 @@ class TestRequiredFields:
 
 
 class TestNamingRules:
-    """ADR 10 naming rules â€” violations are counted, not rejected, so nothing else catches them."""
+    """ADR 10 naming rules — violations are counted, not rejected, so nothing else catches them."""
 
     def test_prometheus_labelled_fields_are_kebab_case(
         self, recorder: _CompletionsRecorder, sluice_env: None
@@ -199,7 +199,7 @@ class TestClosedLabelSet:
 
 
 class TestUntaggedTrafficIsRefused:
-    """An untagged request is accepted by the gateway today â€” local failure is the only signal."""
+    """An untagged request is accepted by the gateway today — local failure is the only signal."""
 
     def test_sluice_route_without_an_agent_refuses_to_send(
         self, recorder: _CompletionsRecorder, sluice_env: None
@@ -300,7 +300,7 @@ class TestUntaggedProviderStacksCannotReachSluice:
     ) -> None:
         from codeflow_engine.actions.llm.providers import OpenAIProvider
 
-        # Same host, cosmetically different URL â€” must not slip past the guard.
+        # Same host, cosmetically different URL — must not slip past the guard.
         with pytest.raises(SluiceMetadataError):
             OpenAIProvider(
                 {"api_key": "sk-test", "base_url": f"{SLUICE_BASE_URL}/v1/"}
@@ -848,6 +848,7 @@ class TestQualityEngineRoutesThroughSluice:
             "app": "codeflow-engine",
             "agent": "quality-analyzer",
         }
+        assert "response_format" not in recorder.calls[0]
 
     @pytest.mark.asyncio
     async def test_does_not_ask_the_gateway_for_a_vendor_model(
@@ -970,3 +971,4 @@ class TestQualityEngineRoutesThroughSluice:
         await AICodeAnalyzer(manager).analyze_code("sample.py", "x = 1\n")
 
         assert sent_metadata(recorder)["agent"] == "quality-analyzer"
+        assert "response_format" not in recorder.calls[0]

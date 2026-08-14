@@ -5,8 +5,9 @@ This module provides AI-powered code analysis capabilities for the Quality Engin
 integrating with the CodeFlow LLM provider system.
 """
 
-import json
+import asyncio
 from enum import StrEnum
+import json
 from pathlib import Path
 from typing import Any
 
@@ -17,6 +18,7 @@ from codeflow_engine.actions.llm.manager import (
 )
 from codeflow_engine.actions.quality_engine.models import ToolResult
 from codeflow_engine.agents.models import CodeIssue
+
 
 logger = structlog.get_logger(__name__)
 
@@ -167,17 +169,19 @@ async def run_ai_analysis(
                 {"role": "user", "content": analysis_prompt},
             ],
             "temperature": 0.1,
-            "response_format": {"type": "json_object"},
         }
         if provider_name:
             request["provider"] = provider_name
         if model:
             request["model"] = model
 
-        response = llm_manager.complete(request)
+        response = await asyncio.to_thread(llm_manager.complete, request)
 
         if not response or not response.content:
-            logger.warning("No response received from LLM")
+            logger.warning(
+                "No response received from LLM",
+                error=getattr(response, "error", None),
+            )
             return None
 
         # Report what was actually used, not what was asked for — when either was
