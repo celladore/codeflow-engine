@@ -9,7 +9,7 @@ Measures and analyzes build times to identify optimization opportunities.
 Path to the project directory.
 
 .PARAMETER BuildCommand
-Build command to execute. Default: "npm run build"
+Build command to execute. Default: "pnpm run build"
 
 .PARAMETER Iterations
 Number of build iterations to run. Default: 3
@@ -23,7 +23,7 @@ param(
     [Parameter(Mandatory = $true)]
     [string]$ProjectPath,
     
-    [string]$BuildCommand = "npm run build",
+    [string]$BuildCommand = "pnpm run build",
     
     [int]$Iterations = 3
 )

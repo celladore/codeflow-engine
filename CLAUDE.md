@@ -25,10 +25,10 @@ mypy .                    # Type check
 coverage run -m pytest    # Coverage
 
 # Desktop app
-cd desktop && npm install && npm run dev
+cd desktop && pnpm install && pnpm run dev
 
 # Website
-cd website && npm install && npm run dev
+cd website && pnpm install && pnpm run dev
 ```
 
 ## Architecture (Monorepo Layout)

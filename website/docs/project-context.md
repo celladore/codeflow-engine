@@ -93,7 +93,7 @@ Users download CodeFlow through their preferred distribution channel.
 | Integration tests | None found | No test directories |
 | E2E tests | None found | No Playwright/Cypress config |
 | CI testing | Present but non-blocking | CI workflow exists but uses `\|\| true` (tests always pass) |
-| Linting | Present but non-blocking | `npm run lint` via `eslint .` |
+| Linting | Present but non-blocking | `pnpm run lint` via `eslint .` |
 
 ---
 

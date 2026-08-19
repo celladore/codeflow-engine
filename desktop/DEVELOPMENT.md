@@ -25,7 +25,7 @@ This guide provides detailed information for developers working on the CodeFlow 
 2. **Install all dependencies:**
    ```bash
    # Node.js dependencies
-   npm install
+   pnpm install
 
    # Python sidecar dependencies
    pip install -r sidecar/requirements.txt
@@ -123,10 +123,10 @@ sidecar/
 
 ```bash
 # Full stack development (recommended)
-npm run tauri dev
+pnpm run tauri dev
 
 # Frontend only (for UI work)
-npm run dev
+pnpm run dev
 ```
 
 ### Making Changes
@@ -143,7 +143,7 @@ npm run dev
 
 3. **Sidecar Changes (Python)**
    - Edit files in `sidecar/`
-   - Requires manual restart of `npm run tauri dev`
+   - Requires manual restart of `pnpm run tauri dev`
 
 ### Code Style
 
@@ -284,10 +284,10 @@ type WebSocketMessage =
 
 ```bash
 # Run tests (if configured)
-npm test
+pnpm test
 
 # Type checking
-npm run build  # TypeScript will error if types are wrong
+pnpm run build  # TypeScript will error if types are wrong
 ```
 
 ### Rust Testing
@@ -321,7 +321,7 @@ pytest --cov=.
 
 1. **Build and test the app:**
    ```bash
-   npm run tauri build
+   pnpm run tauri build
    ```
 
 2. **Test the installer:**
@@ -353,7 +353,7 @@ pytest --cov=.
 cargo build --release
 
 # Optimize frontend bundle
-npm run build -- --minify
+pnpm run build -- --minify
 ```
 
 ## Security
@@ -379,7 +379,7 @@ npm run build -- --minify
 - Use HTTPS for external APIs
 - Keep dependencies updated:
   ```bash
-  npm audit
+  pnpm audit
   cargo audit
   ```
 
@@ -406,7 +406,7 @@ npm run build -- --minify
 
 2. **Enable Backtrace**
    ```bash
-   RUST_BACKTRACE=1 npm run tauri dev
+   RUST_BACKTRACE=1 pnpm run tauri dev
    ```
 
 3. **Use VS Code Debugger**
@@ -462,10 +462,10 @@ npm run build -- --minify
 
 ```bash
 # Node.js dependencies
-npm update
+pnpm update
 
 # Check for outdated packages
-npm outdated
+pnpm outdated
 
 # Rust dependencies
 cd src-tauri

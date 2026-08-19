@@ -10,6 +10,7 @@
     "directory": "vscode-extension"
   },
   "license": "MIT",
+  "packageManager": "pnpm@10.33.0",
   "engines": {
     "vscode": "^1.85.0",
     "cursor": "^1.85.0",
@@ -615,16 +616,16 @@
     }
   },
   "scripts": {
-    "vscode:prepublish": "npm run compile",
+    "vscode:prepublish": "pnpm run compile",
     "compile": "tsc -p ./",
     "watch": "tsc -watch -p ./",
-    "pretest": "npm run compile && npm run lint",
+    "pretest": "pnpm run compile && pnpm run lint",
     "lint": "eslint src --ext ts",
     "test": "node ./out/test/runTest.js",
-    "package": "npx @vscode/vsce package",
-    "publish": "npx @vscode/vsce publish",
+    "package": "pnpm exec vsce package",
+    "publish": "pnpm exec vsce publish",
     "clean": "rimraf out",
-    "build": "npm run clean && npm run compile"
+    "build": "pnpm run clean && pnpm run compile"
   },
   "devDependencies": {
     "@types/glob": "^8.0.0",

@@ -8,9 +8,9 @@ SKIP_CLONE="${2:-false}"
 
 repos=(
     "codeflow-engine:Python:poetry install"
-    "codeflow-desktop:Node:npm install"
-    "codeflow-vscode-extension:Node:npm install"
-    "codeflow-website:Node:npm install"
+    "codeflow-desktop:Node:pnpm install"
+    "codeflow-vscode-extension:Node:pnpm install"
+    "codeflow-website:Node:pnpm install"
     "codeflow-infrastructure:IaC:az bicep build --file bicep/codeflow-engine.bicep"
     "codeflow-azure-setup:Scripts:echo 'No dependencies'"
     "codeflow-orchestration:Scripts:echo 'No dependencies'"
@@ -85,7 +85,7 @@ for repo_info in "${repos[@]}"; do
             ;;
         Node)
             if [ -f "package.json" ]; then
-                npm install
+                pnpm install
             else
                 echo "  ⚠ No package.json found"
             fi

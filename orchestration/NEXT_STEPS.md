@@ -73,9 +73,9 @@
 4. **Test Publishing (Optional)**
    ```bash
    cd packages/@codeflow/utils
-   npm install
-   npm run build
-   npm pack --dry-run
+   pnpm install
+   pnpm run build
+   pnpm pack --dry-run
    ```
 
 #### Quick Setup Script

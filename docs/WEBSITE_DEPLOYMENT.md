@@ -61,8 +61,8 @@ references to Bicep-based deployment for this site.
 
 ```bash
 cd website
-npm install
-npm run dev
+pnpm install
+pnpm run dev
 ```
 
 Visit `http://localhost:3000` to view the site.
@@ -79,7 +79,7 @@ Visit `http://localhost:3000` to view the site.
 A pull request touching those paths runs a separate build-only validation job
 (no deploy).
 
-The deploy job builds with `npm ci` + `npm run build`, then uploads the static
+The deploy job builds with `pnpm install --frozen-lockfile` + `pnpm run build`, then uploads the static
 export in `website/out` via `Azure/static-web-apps-deploy@v1`
 (`skip_app_build: true` — the action does not rebuild, it just uploads what
 the workflow already built).
@@ -88,9 +88,9 @@ the workflow already built).
 
 ```bash
 cd website
-npm run build
+pnpm run build
 
-npm install -g @azure/static-web-apps-cli
+pnpm add -g @azure/static-web-apps-cli
 swa deploy ./out --deployment-token <YOUR_TOKEN>
 ```
 

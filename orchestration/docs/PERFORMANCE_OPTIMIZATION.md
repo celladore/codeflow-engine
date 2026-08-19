@@ -43,7 +43,7 @@ Measures and analyzes build times to identify optimization opportunities.
 ```powershell
 .\scripts\performance\analyze-build-time.ps1 `
     -ProjectPath "C:\repos\codeflow-desktop" `
-    -BuildCommand "npm run build" `
+    -BuildCommand "pnpm run build" `
     -Iterations 5
 ```
 
@@ -166,10 +166,10 @@ Analyzes Dockerfile and provides optimization recommendations.
    # Build stage
    FROM node:18-alpine AS builder
    WORKDIR /app
-   COPY package*.json ./
-   RUN npm ci
+   COPY package.json pnpm-lock.yaml ./
+   RUN corepack enable && pnpm install --frozen-lockfile
    COPY . .
-   RUN npm run build
+   RUN pnpm run build
    
    # Production stage
    FROM node:18-alpine
