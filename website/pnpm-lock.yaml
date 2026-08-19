@@ -21,6 +21,9 @@ importers:
       '@cspell/dict-en_us':
         specifier: ^4.4.16
         version: 4.4.36
+      '@eslint/eslintrc':
+        specifier: ^3.3.6
+        version: 3.3.6
       '@storybook/addon-essentials':
         specifier: 8.6.17
         version: 8.6.17(@types/react@19.2.18)(storybook@8.6.17)
