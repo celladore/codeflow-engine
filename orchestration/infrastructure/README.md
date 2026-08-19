@@ -16,15 +16,23 @@ This directory is the canonical home for Codeflow product-specific infrastructur
 
 Path: `terraform/website`
 
-This stack creates the Azure Static Web App for the temporary launch hostname
-`codeflow.phoenixvc.tech`.
+This stack owns the Azure Static Web App for the production launch hostname
+`codeflow.celladoresystems.com` (moved from `codeflow.phoenixvc.tech` 2026-08-19
+following the org transfer to celladore — see `CEL_MIGRATION_PLAN.md`).
 
 Use the sequence documented in [terraform/website/README.md](terraform/website/README.md):
 
 1. Plan/apply the Static Web App with `enable_custom_domain=false`.
-2. Pass the Static Web App default hostname to the org-meta DNS stack.
-3. Apply the `codeflow.phoenixvc.tech` CNAME in org-meta.
+2. Pass the Static Web App default hostname to `celladore-org/infrastructure/dns`
+   (Cloudflare, zone `celladoresystems.com` — DNS for this domain is owned there now,
+   not org-meta).
+3. Apply the `codeflow.celladoresystems.com` CNAME via that repo's manual apply workflow.
 4. Re-plan this stack with `enable_custom_domain=true` for the Azure custom-domain binding.
+
+As of 2026-08-19 this sequence has been executed against live resources directly via `az`
+CLI, not by actually applying this stack — see `terraform/website/README.md`'s banner for
+why (this stack has never been successfully applied; a first real apply needs
+`terraform import` first).
 
 Do not use `codeflow.io` until domain ownership and brand risk are resolved.
 
@@ -44,9 +52,15 @@ exception documented next to the stack.
 Current Codeflow resource names follow the ADR-0027 style: structured identifiers with no trailing
 region suffix. Region remains expressed by the resource group location.
 
-- Resource group: `pvc-prod-codeflow-rg`
-- Website Static Web App: `pvc-prod-codeflow-swa`
-- Runtime Container App: `pvc-prod-codeflow-api`
+As of 2026-08-19, live resources use `cel-` naming in `celladore-sub` — recreated from the
+original `pvc-` resources following the org transfer to celladore (cross-tenant resource
+`move` doesn't exist as an Azure operation, so this was a recreate-and-cutover; see
+`CEL_MIGRATION_PLAN.md` for the full history, including the still-pending handoff to
+decommission the old `pvc-*` resource groups).
 
-Keep future names aligned with `pvc-{env}-codeflow-{type}` unless a provider constraint requires
+- Resource group: `cel-prod-codeflow-rg`
+- Website Static Web App: `cel-prod-codeflow-swa`
+- Runtime Container App: `cel-prod-codeflow-api`
+
+Keep future names aligned with `cel-{env}-codeflow-{type}` unless a provider constraint requires
 otherwise. Storage accounts and ACR names omit dashes.
