@@ -120,16 +120,16 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: '20'
-          cache: 'npm'
-          cache-dependency-path: packages/@codeflow/utils/package.json
+          cache: 'pnpm'
+          cache-dependency-path: packages/@codeflow/utils/pnpm-lock.yaml
 
       - name: Validate TypeScript package
         working-directory: packages/@codeflow/utils
         run: |
-          npm ci
-          npm run lint || true
-          npm run build
-          npm test
+          pnpm install --frozen-lockfile
+          pnpm run lint || true
+          pnpm run build
+          pnpm test
 
       # Python package validation
       - name: Setup Python

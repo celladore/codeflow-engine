@@ -25,7 +25,7 @@ export default function Installation() {
                 Use our automated installation script for the fastest setup:
               </p>
               <div className="rounded-lg bg-slate-800 p-4 font-mono text-sm text-slate-50 dark:bg-slate-900">
-                <code>curl -fsSL https://raw.githubusercontent.com/JustAGhosT/codeflow-engine/main/install.sh | bash</code>
+                <code>curl -fsSL https://raw.githubusercontent.com/celladore/codeflow-engine/main/install.sh | bash</code>
               </div>
             </div>
 
@@ -99,7 +99,7 @@ export default function Installation() {
             <p className="text-blue-800 dark:text-blue-200">
               Check out our{" "}
               <a
-                href="https://github.com/JustAGhosT/codeflow-engine/blob/main/README.md"
+                href="https://github.com/celladore/codeflow-engine/blob/main/README.md"
                 target="_blank"
                 rel="noopener noreferrer"
                 className="underline hover:no-underline"

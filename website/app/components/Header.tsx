@@ -53,7 +53,7 @@ export default function Header({ currentPage = 'home' }: HeaderProps) {
             Download
           </Link>
           <a
-            href="https://github.com/JustAGhosT/codeflow-engine"
+            href="https://github.com/celladore/codeflow-engine"
             target="_blank"
             rel="noopener noreferrer"
             className="text-slate-600 hover:text-slate-900 dark:text-slate-400 dark:hover:text-slate-50"

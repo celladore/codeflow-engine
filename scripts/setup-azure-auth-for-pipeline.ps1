@@ -5,17 +5,17 @@ param(
     [Parameter(Mandatory = $true)]
     [string]$TenantId,
 
-    [string]$IdentityResourceGroup = "pvc-prod-codeflow-identity-rg",
+    [string]$IdentityResourceGroup = "cel-prod-codeflow-identity-rg",
 
-    [string]$DeploymentResourceGroup = "pvc-prod-codeflow-rg",
+    [string]$DeploymentResourceGroup = "cel-prod-codeflow-rg",
 
-    [string]$ContainerRegistryName = "pvcprodcodeflowacr",
+    [string]$ContainerRegistryName = "celprodcodeflowacr",
 
     [string]$Location = "southafricanorth",
 
-    [string]$IdentityName = "pvc-prod-codeflow-github-mi",
+    [string]$IdentityName = "cel-prod-codeflow-github-mi",
 
-    [string]$GitHubOwner = "phoenixvc",
+    [string]$GitHubOwner = "celladore",
 
     [string]$GitHubRepository = "codeflow-engine",
 
@@ -80,6 +80,14 @@ Invoke-Az role assignment create `
     --role AcrPush `
     --scope $containerRegistryId | Out-Null
 
+# NOTE (2026-08-19): this classic-format subject matched what GitHub issued when this
+# script was first used against phoenixvc/codeflow-engine, but the celladore org has
+# GitHub's immutable-OIDC-subject-ID behavior active — its actual `sub` claim is
+# `repo:<org>@<org_id>/<repo>@<repo_id>:environment:<name>`, not this string. Azure does
+# exact string matching, so a fresh credential created with this subject will fail
+# deploys with AADSTS700213 until corrected via `az identity federated-credential
+# update --subject <the exact string from the error>`. Confirm which format applies
+# before relying on this value; see CEL_MIGRATION_PLAN.md's Phase 4 log for the story.
 $subject = "repo:${GitHubOwner}/${GitHubRepository}:environment:${GitHubEnvironment}"
 
 Invoke-Az identity federated-credential create `
@@ -95,6 +103,8 @@ Invoke-Az identity federated-credential create `
     AZURE_TENANT_ID       = $selectedTenantId
     AZURE_SUBSCRIPTION_ID = $SubscriptionId
     AZURE_RESOURCE_GROUP  = $DeploymentResourceGroup
-    AZURE_CONTAINER_APP   = "pvc-prod-codeflow-api"
+    # Hardcoded rather than parameterized (pre-existing; not a $DeploymentResourceGroup
+    # derivation) — update this literal directly if the Container App name ever changes.
+    AZURE_CONTAINER_APP   = "cel-prod-codeflow-api"
     AZURE_CONTAINER_REGISTRY = $ContainerRegistryName
 } | Format-List

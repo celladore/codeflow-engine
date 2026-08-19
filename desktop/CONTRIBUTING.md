@@ -10,7 +10,7 @@ Thank you for your interest in contributing to CodeFlow Desktop! This document p
 2. **Clone your fork** locally
 3. **Set up development environment**:
    ```bash
-   npm install
+   pnpm install
    ```
 4. **Create a branch** for your changes
 
@@ -22,16 +22,16 @@ Thank you for your interest in contributing to CodeFlow Desktop! This document p
 
 - Node.js 20+
 - Rust (latest stable)
-- Tauri CLI: `npm install -g @tauri-apps/cli`
+- Tauri CLI: `pnpm add -g @tauri-apps/cli`
 
 ### Running Locally
 
 ```bash
 # Development mode
-npm run tauri dev
+pnpm run tauri dev
 
 # Build
-npm run tauri build
+pnpm run tauri build
 ```
 
 ### Code Style
@@ -43,19 +43,19 @@ npm run tauri build
 
 **Before committing:**
 ```bash
-npm run lint
-npm run format
-npm run type-check
+pnpm run lint
+pnpm run format
+pnpm run type-check
 ```
 
 ### Testing
 
 ```bash
 # Run tests
-npm test
+pnpm test
 
 # Run with coverage
-npm run test:coverage
+pnpm run test:coverage
 ```
 
 **Target Coverage:** >70% for UI components

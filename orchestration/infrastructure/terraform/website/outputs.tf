@@ -9,7 +9,7 @@ output "static_web_app_name" {
 }
 
 output "static_web_app_default_hostname" {
-  description = "Default hostname to pass to org-meta as codeflow_static_web_app_hostname."
+  description = "Default hostname to pass to celladore-org/infrastructure/dns as the codeflow CNAME target."
   value       = azurerm_static_web_app.website.default_host_name
 }
 

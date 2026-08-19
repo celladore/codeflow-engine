@@ -10,7 +10,7 @@ Thank you for your interest in contributing to the CodeFlow VS Code extension! T
 2. **Clone your fork** locally
 3. **Set up development environment**:
    ```bash
-   npm install
+   pnpm install
    ```
 4. **Create a branch** for your changes
 
@@ -28,10 +28,10 @@ Thank you for your interest in contributing to the CodeFlow VS Code extension! T
 
 ```bash
 # Compile TypeScript
-npm run compile
+pnpm run compile
 
 # Watch mode
-npm run watch
+pnpm run watch
 
 # Launch extension (press F5 in VS Code)
 ```
@@ -45,19 +45,19 @@ npm run watch
 
 **Before committing:**
 ```bash
-npm run lint
-npm run format
-npm run compile
+pnpm run lint
+pnpm run format
+pnpm run compile
 ```
 
 ### Testing
 
 ```bash
 # Run tests
-npm test
+pnpm test
 
 # Run with coverage
-npm run test:coverage
+pnpm run test:coverage
 ```
 
 **Target Coverage:** >70% for core functionality

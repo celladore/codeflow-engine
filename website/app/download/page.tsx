@@ -25,7 +25,7 @@ export default function Download() {
                 Download the latest stable release from GitHub:
               </p>
               <a
-                href="https://github.com/JustAGhosT/codeflow-engine/releases/latest"
+                href="https://github.com/celladore/codeflow-engine/releases/latest"
                 target="_blank"
                 rel="noopener noreferrer"
                 className="inline-block rounded-lg bg-slate-800 px-6 py-3 font-semibold text-white transition-colors hover:bg-slate-700 dark:bg-slate-100 dark:text-slate-900 dark:hover:bg-slate-200"
@@ -67,7 +67,7 @@ export default function Download() {
                 <code>docker pull ghcr.io/justaghost/codeflow-engine:latest</code>
               </div>
               <a
-                href="https://github.com/JustAGhosT/codeflow-engine/pkgs/container/codeflow-engine"
+                href="https://github.com/celladore/codeflow-engine/pkgs/container/codeflow-engine"
                 target="_blank"
                 rel="noopener noreferrer"
                 className="mt-4 inline-block text-blue-600 hover:underline dark:text-blue-400"
@@ -85,7 +85,7 @@ export default function Download() {
                 Clone the repository to build from source:
               </p>
               <div className="rounded-lg bg-slate-800 p-4 font-mono text-sm text-slate-50 dark:bg-slate-900">
-                <code>git clone https://github.com/JustAGhosT/codeflow-engine.git</code>
+                <code>git clone https://github.com/celladore/codeflow-engine.git</code>
               </div>
             </div>
           </div>

@@ -5,11 +5,15 @@ Handles AI interactions for quality analysis.
 """
 
 import time
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 import structlog
 
 from codeflow_engine.actions.quality_engine.models import ToolResult
+
+
+if TYPE_CHECKING:
+    from codeflow_engine.actions.llm.manager import ActionLLMProviderManager
 
 logger = structlog.get_logger(__name__)
 
@@ -206,7 +210,7 @@ async def run_ai_analysis(
         return None
 
 
-async def initialize_llm_manager() -> Any | None:
+async def initialize_llm_manager() -> "ActionLLMProviderManager | None":
     """Initialize the LLM manager for AI analysis.
 
     Delegates to the quality engine's single initializer rather than building a

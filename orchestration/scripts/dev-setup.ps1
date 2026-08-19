@@ -25,9 +25,9 @@ $ErrorActionPreference = 'Stop'
 
 $repos = @(
     @{ Name = "codeflow-engine"; Type = "Python"; Setup = "poetry install" },
-    @{ Name = "codeflow-desktop"; Type = "Node"; Setup = "npm install" },
-    @{ Name = "codeflow-vscode-extension"; Type = "Node"; Setup = "npm install" },
-    @{ Name = "codeflow-website"; Type = "Node"; Setup = "npm install" },
+    @{ Name = "codeflow-desktop"; Type = "Node"; Setup = "pnpm install" },
+    @{ Name = "codeflow-vscode-extension"; Type = "Node"; Setup = "pnpm install" },
+    @{ Name = "codeflow-website"; Type = "Node"; Setup = "pnpm install" },
     @{ Name = "codeflow-infrastructure"; Type = "IaC"; Setup = "az bicep build --file bicep/codeflow-engine.bicep" },
     @{ Name = "codeflow-azure-setup"; Type = "Scripts"; Setup = "Write-Host 'No dependencies'" },
     @{ Name = "codeflow-orchestration"; Type = "Scripts"; Setup = "Write-Host 'No dependencies'" }
@@ -106,7 +106,7 @@ foreach ($repo in $repos) {
             }
         } elseif ($repo.Type -eq "Node") {
             if (Test-Path "package.json") {
-                npm install
+                pnpm install
             } else {
                 Write-Host "  ⚠ No package.json found" -ForegroundColor Yellow
             }

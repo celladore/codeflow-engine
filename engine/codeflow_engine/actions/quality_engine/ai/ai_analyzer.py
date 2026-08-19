@@ -135,8 +135,6 @@ class AICodeAnalyzer:
             ],
             "temperature": 0.3,  # Lower temperature for more deterministic responses
             "max_tokens": 2000,
-            # ✅ Validated and enforced JSON output per provider
-            "response_format": {"type": "json"},
         }
         if provider_name:
             request["provider"] = provider_name
@@ -149,7 +147,7 @@ class AICodeAnalyzer:
                 file_path=file_path,
                 provider=provider_name or "default",
             )
-            response = self.llm_manager.complete(request)
+            response = await asyncio.to_thread(self.llm_manager.complete, request)
 
             # LLMResponse is a dataclass and so always truthy; a failed call carries
             # `error` with empty content. Checking truthiness alone would send "" on

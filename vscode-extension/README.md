@@ -36,8 +36,8 @@ AI-Powered Code Quality and Automation for VS Code
 
 1. Clone this repository
 2. Navigate to the extension directory
-3. Run `npm install`
-4. Run `npm run compile`
+3. Run `pnpm install`
+4. Run `pnpm run compile`
 5. Press F5 to launch the extension in a new VS Code window
 
 ## Usage
@@ -87,11 +87,11 @@ AI-Powered Code Quality and Automation for VS Code
 ### Build Commands
 
 ```bash
-npm install          # Install dependencies
-npm run compile      # Compile TypeScript
-npm run watch        # Watch for changes
-npm run lint         # Run ESLint
-npm run test         # Run tests
+pnpm install          # Install dependencies
+pnpm run compile      # Compile TypeScript
+pnpm run watch        # Watch for changes
+pnpm run lint         # Run ESLint
+pnpm run test         # Run tests
 ```
 
 ### Building for Release
@@ -99,7 +99,7 @@ npm run test         # Run tests
 The extension is built in CI and `.vsix` files are attached to GitHub Releases. To build locally:
 
 ```bash
-npm run package      # Creates .vsix file
+pnpm run package      # Creates .vsix file
 ```
 
 **Note**: `.vsix` files are build artifacts and should not be committed to the repository long-term.

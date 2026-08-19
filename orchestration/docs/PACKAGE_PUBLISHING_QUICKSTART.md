@@ -84,9 +84,9 @@ Follow the detailed guide: [PACKAGE_PUBLISHING_GUIDE.md](./PACKAGE_PUBLISHING_GU
 
 2. **Test Build:**
    ```bash
-   npm install
-   npm run build
-   npm pack --dry-run
+   pnpm install
+   pnpm run build
+   pnpm pack --dry-run
    ```
 
 3. **Publish:**

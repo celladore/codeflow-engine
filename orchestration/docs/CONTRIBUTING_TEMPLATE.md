@@ -110,9 +110,9 @@ mypy codeflow_engine
 
 **Before committing:**
 ```bash
-npm run lint
-npm run format
-npm run type-check
+pnpm run lint
+pnpm run format
+pnpm run type-check
 ```
 
 ### PowerShell (Scripts)
@@ -161,8 +161,8 @@ pytest --cov=codeflow_engine
 
 **TypeScript/JavaScript:**
 ```bash
-npm test
-npm run test:coverage
+pnpm test
+pnpm run test:coverage
 ```
 
 ### Test Coverage

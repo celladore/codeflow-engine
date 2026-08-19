@@ -11,7 +11,7 @@ variable "tenant_id" {
 variable "resource_group_name" {
   description = "Existing Codeflow production resource group."
   type        = string
-  default     = "pvc-prod-codeflow-rg"
+  default     = "cel-prod-codeflow-rg"
 }
 
 variable "location" {
@@ -23,37 +23,37 @@ variable "location" {
 variable "container_app_name" {
   description = "Codeflow runtime Container App name."
   type        = string
-  default     = "pvc-prod-codeflow-api"
+  default     = "cel-prod-codeflow-api"
 }
 
 variable "container_app_environment_name" {
   description = "Codeflow Container Apps Environment name."
   type        = string
-  default     = "pvc-prod-codeflow-cae"
+  default     = "cel-prod-codeflow-cae"
 }
 
 variable "log_analytics_workspace_name" {
   description = "Log Analytics Workspace for Codeflow Container Apps logs."
   type        = string
-  default     = "pvc-prod-codeflow-law"
+  default     = "cel-prod-codeflow-law"
 }
 
 variable "container_registry_name" {
   description = "Globally unique Azure Container Registry name. ACR names cannot contain dashes."
   type        = string
-  default     = "pvcprodcodeflowacr"
+  default     = "celprodcodeflowacr"
 }
 
 variable "container_app_identity_name" {
   description = "User-assigned managed identity attached to the Codeflow Container App."
   type        = string
-  default     = "pvc-prod-codeflow-api-mi"
+  default     = "cel-prod-codeflow-api-mi"
 }
 
 variable "initial_image" {
   description = "Codeflow Engine image deployed by default. Override only for bootstrap scenarios."
   type        = string
-  default     = "pvcprodcodeflowacr.azurecr.io/codeflow-engine:master"
+  default     = "celprodcodeflowacr.azurecr.io/codeflow-engine:master"
 }
 
 variable "tags" {
@@ -62,7 +62,7 @@ variable "tags" {
   default = {
     Environment = "prod"
     Product     = "codeflow"
-    Owner       = "phoenixvc"
+    Owner       = "celladore"
     ManagedBy   = "terraform"
   }
 }

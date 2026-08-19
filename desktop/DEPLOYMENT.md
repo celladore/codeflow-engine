@@ -30,11 +30,11 @@ Ensure all development dependencies are installed:
 cd codeflow-desktop
 
 # Install dependencies
-npm install
+pnpm install
 pip install -r sidecar/requirements.txt
 
 # Build the application
-npm run tauri build
+pnpm run tauri build
 ```
 
 The build process will:
@@ -77,10 +77,10 @@ src-tauri/target/release/bundle/
 #### Build Commands
 ```powershell
 # Standard build
-npm run tauri build
+pnpm run tauri build
 
 # Build with specific features
-npm run tauri build -- --features "feature1,feature2"
+pnpm run tauri build -- --features "feature1,feature2"
 ```
 
 #### Code Signing (Windows)
@@ -102,10 +102,10 @@ signtool verify /pa codeflow-desktop.exe
 #### Build Commands
 ```bash
 # Standard build
-npm run tauri build
+pnpm run tauri build
 
 # Build universal binary (Intel + Apple Silicon)
-npm run tauri build -- --target universal-apple-darwin
+pnpm run tauri build -- --target universal-apple-darwin
 ```
 
 #### Code Signing (macOS)
@@ -154,11 +154,11 @@ sudo dnf install webkit2gtk4.0-devel \
 #### Build Commands
 ```bash
 # Standard build
-npm run tauri build
+pnpm run tauri build
 
 # Build specific package types
-npm run tauri build -- --bundles deb
-npm run tauri build -- --bundles appimage
+pnpm run tauri build -- --bundles deb
+pnpm run tauri build -- --bundles appimage
 ```
 
 ## Code Signing
@@ -220,7 +220,7 @@ gh release create v1.0.0 \
 
 1. Create Windows Store package:
    ```bash
-   npm run tauri build -- --bundles appx
+   pnpm run tauri build -- --bundles appx
    ```
 
 2. Submit to Windows Partner Center
@@ -229,7 +229,7 @@ gh release create v1.0.0 \
 
 1. Build for App Store:
    ```bash
-   npm run tauri build -- --target mas
+   pnpm run tauri build -- --target mas
    ```
 
 2. Submit via Xcode or Application Loader
@@ -279,7 +279,7 @@ Create flatpak manifest and submit to Flathub
 
 3. **Generate update manifest:**
    ```bash
-   npm run tauri build
+   pnpm run tauri build
    # Update manifest is generated automatically
    ```
 
@@ -321,13 +321,13 @@ Create flatpak manifest and submit to Flathub
 - [ ] Update version in `src-tauri/Cargo.toml`
 - [ ] Update version in `src-tauri/tauri.conf.json`
 - [ ] Update CHANGELOG.md
-- [ ] Run all tests: `npm test && cargo test`
+- [ ] Run all tests: `pnpm test && cargo test`
 - [ ] Test on all target platforms
 - [ ] Update documentation
 
 ### Build
 
-- [ ] Clean previous builds: `npm run clean`
+- [ ] Clean previous builds: `pnpm run clean`
 - [ ] Build for all platforms
 - [ ] Verify build artifacts
 - [ ] Test installers on clean systems
@@ -376,10 +376,14 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
           node-version: 20
+          cache: 'pnpm'
 
       - name: Setup Rust
         uses: dtolnay/rust-toolchain@stable
@@ -387,12 +391,12 @@ jobs:
       - name: Install dependencies
         run: |
           cd codeflow-desktop
-          npm install
+          pnpm install --frozen-lockfile
 
       - name: Build application
         run: |
           cd codeflow-desktop
-          npm run tauri build
+          pnpm run tauri build
 
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
@@ -416,12 +420,12 @@ jobs:
 - Clear cargo cache: `cargo clean`
 
 **"Node modules error"**
-- Delete `node_modules` and `package-lock.json`
-- Run `npm install` again
+- Delete `node_modules` and `pnpm-lock.yaml`
+- Run `pnpm install` again
 
 **"Tauri CLI not found"**
-- Install globally: `npm install -g @tauri-apps/cli`
-- Or use npx: `npx tauri build`
+- Install globally: `pnpm add -g @tauri-apps/cli`
+- Or use pnpm exec: `pnpm exec tauri build`
 
 ### Code Signing Issues
 
