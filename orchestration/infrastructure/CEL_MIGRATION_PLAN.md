@@ -412,9 +412,12 @@ to it directly.
    is per-subscription, not per-app/per-environment). Mirrors the `sluice_gateway` /
    `sluice_gateway_verification` pattern already in that repo, not the single-CNAME
    `cname-delegation` pattern used for the marketing site. Automatic plan check is clean:
-   `Plan: 2 to add, 0 to change, 0 to destroy`. Needs merge, then a manual
-   `terraform-dns-apply.yml` dispatch (`confirm: apply`) — same human/session split as Phase
-   5's DNS PR.
+   `Plan: 2 to add, 0 to change, 0 to destroy`. Confirmed via `Resolve-DnsName` that neither
+   `app.codeflow.celladoresystems.com` nor `asuid.app.codeflow.celladoresystems.com`
+   currently resolves (both return only the zone's `SOA`), so the apply should go through
+   cleanly with no pre-existing-record `reconcile` needed — unlike the failure mode this
+   repo's own README documents. Needs merge, then a manual `terraform-dns-apply.yml`
+   dispatch (`confirm: apply`) — same human/session split as Phase 5's DNS PR.
 2. **Azure-side custom-domain bind — not started.** Once the CNAME/TXT resolve:
    ```
    az containerapp hostname add --hostname app.codeflow.celladoresystems.com \
@@ -423,22 +426,41 @@ to it directly.
      -g cel-prod-codeflow-rg -n cel-prod-codeflow-api \
      --environment cel-prod-codeflow-cae --validation-method CNAME
    ```
-   Expect this to hit the same permission-classifier block Phase 5's `az staticwebapp
-   hostname set` did (live production-resource mutation) — document the exact command here
-   and get explicit user approval rather than routing around it, per this plan's established
+   Flags verified against the installed `containerapp` extension (`az containerapp hostname
+   bind --help`): `--environment/-e` and `--validation-method/-v` are both accepted by this
+   CLI version — this org has no working precedent for this exact command (sluice's own
+   README still marks its equivalent step "Not done"), so the flags weren't assumed from
+   pattern alone. CNAME validation is also the correct choice given the app's
+   `min_replicas=0` — HTTP validation would require the app to be awake to respond. Expect
+   this to hit the same permission-classifier block Phase 5's `az staticwebapp hostname set`
+   did (live production-resource mutation) — document the exact command here and get
+   explicit user approval rather than routing around it, per this plan's established
    discipline.
-3. **`website/app/config/constants.ts`** — `APP_URL` updated from `https://app.codeflow.io`
-   to `https://app.codeflow.celladoresystems.com` (this repo, this branch), with a comment
-   explaining the old value and pointing back to this log. This ships ahead of steps 1–2
-   landing, so expect the site's `/integration` page links to error or cert-mismatch until
-   the DNS PR is merged/applied and the Azure bind completes — same propagation-lag pattern
-   documented throughout this plan, not a bug in this change.
+3. **Host/CORS allowlist check — no action needed.** Checked whether binding a new hostname
+   could succeed at the DNS/cert layer but still get rejected by the app itself: `az
+   containerapp show --query properties.template.containers[].env` returns `[]` (no explicit
+   env vars set on the live revision), and `engine/codeflow_engine/server.py` has no
+   `TrustedHostMiddleware` or other host-header allowlist. `security.allowed_origins` in
+   `production.yaml` / `settings.py` defaults to `[]` regardless of hostname — that was
+   already true before this cutover (it never included `app.codeflow.io` either), so it's
+   not a regression this phase introduces and doesn't block the bind.
+4. **`website/app/config/constants.ts`** — `APP_URL` updated from `https://app.codeflow.io`
+   to `https://app.codeflow.celladoresystems.com` (this repo, `codeflow-engine#59`), with a
+   comment explaining the old value and pointing back to this log.
 
-**Not yet done:** merging `celladore-org#10`, the DNS apply dispatch, and the Azure hostname
-bind (step 2) all need explicit user action — this session cannot merge PRs or run
-production-mutating `az containerapp hostname` commands unattended. Re-verify
-`app.codeflow.celladoresystems.com` end-to-end (valid cert, `/health` 200) before considering
-Phase 8 complete.
+**Merge order matters — this is not a "ship the code, gate the deploy" cutover.**
+`.github/workflows/deploy-website.yml` triggers `Build and Deploy Next.js Website` on every
+`push` to `master` touching `website/**`, with no separate dispatch gate — merging
+`codeflow-engine#59` deploys it immediately. So steps 1–2 must land and be verified (valid
+cert, `/health` 200 on the new hostname) *before* `codeflow-engine#59` is merged, not after;
+there is no "hold the deploy" lever once the merge happens. (An earlier version of this PR's
+description implied deploy and merge were separable — corrected once the workflow's `on:`
+block was actually read.)
+
+**Not yet done:** merging `celladore-org#10`, the DNS apply dispatch, the Azure hostname bind
+(step 2), and merging `codeflow-engine#59` all need explicit user action, in that order —
+this session cannot merge PRs or run production-mutating `az containerapp hostname` commands
+unattended. Re-verify `app.codeflow.celladoresystems.com` end-to-end before merging #59.
 
 ## Not touched by this plan
 
