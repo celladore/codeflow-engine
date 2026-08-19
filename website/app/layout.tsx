@@ -22,8 +22,8 @@ const geistMono = localFont({
 });
 
 export const metadata: Metadata = {
-  title: "CodeFlow - AI-Powered GitHub PR Automation (Alpha Preview)",
-  description: "Transform your GitHub pull request workflows through intelligent analysis, issue creation, and multi-agent collaboration. Currently in alpha preview.",
+  title: "CodeFlow - AI-Powered GitHub PR Automation (Private Preview)",
+  description: "Transform your GitHub pull request workflows through intelligent analysis, issue creation, and multi-agent collaboration. Currently in private preview.",
 };
 
 export default function RootLayout({

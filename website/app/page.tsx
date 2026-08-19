@@ -13,7 +13,7 @@ export default function Home() {
       <main className="flex-1">
         <section className="mx-auto max-w-7xl px-6 py-24 text-center">
           <div className="mb-8 inline-block rounded-full bg-gradient-to-r from-amber-50 to-orange-50 px-6 py-2 text-sm font-semibold text-amber-900 dark:from-amber-950/80 dark:to-orange-950/80 dark:text-amber-100">
-            🚧 Alpha Preview - Try our early access version →
+            🔒 Private Preview - Request early access →
           </div>
           <h1 className="mb-6 text-5xl font-bold tracking-tight text-slate-900 dark:text-slate-50 sm:text-6xl">
             AI-Powered GitHub PR Automation
@@ -27,7 +27,7 @@ export default function Home() {
               href="/login"
               className="rounded-lg bg-gradient-to-r from-blue-600 to-purple-600 px-8 py-3 text-lg font-semibold text-white transition-all hover:from-blue-700 hover:to-purple-700 hover:shadow-lg"
             >
-              Try Alpha Preview
+              Request Private Preview
             </Link>
             <Link
               href="/signup"
@@ -68,17 +68,17 @@ export default function Home() {
           </div>
         </section>
 
-        {/* Alpha Preview Section */}
+        {/* Private Preview Section */}
         <section className="mx-auto max-w-7xl px-6 py-12">
           <div className="rounded-lg border-2 border-amber-500 bg-gradient-to-r from-amber-50/90 to-orange-50/90 p-8 text-center backdrop-blur-sm dark:from-amber-950/80 dark:to-orange-950/80">
             <div className="mb-2 text-sm font-semibold uppercase tracking-wide text-amber-700 dark:text-amber-300">
-              🚧 Alpha Preview
+              🔒 Private Preview
             </div>
             <h2 className="mb-4 text-2xl font-bold text-slate-900 dark:text-slate-50">
-              Try CodeFlow Engine Alpha - Help Shape the Future!
+              Join the CodeFlow Engine Private Preview - Help Shape the Future!
             </h2>
             <p className="mb-6 text-lg text-slate-700 dark:text-slate-300">
-              CodeFlow Engine is in active development. Try our alpha preview to experience the power
+              CodeFlow Engine is in active development. Join our private preview to experience the power
               of AI-powered PR automation and help us improve with your feedback.
             </p>
             <div className="flex flex-col items-center justify-center gap-4 sm:flex-row">
@@ -86,10 +86,10 @@ export default function Home() {
                 href="/login"
                 className="inline-block rounded-lg bg-gradient-to-r from-blue-600 to-purple-600 px-8 py-3 text-lg font-semibold text-white transition-all hover:from-blue-700 hover:to-purple-700 hover:shadow-lg"
               >
-                Access Alpha Preview →
+                Request Private Preview →
               </Link>
               <a
-                href="https://github.com/JustAGhosT/codeflow-engine/discussions"
+                href="https://github.com/celladore/codeflow-engine/discussions"
                 target="_blank"
                 rel="noopener noreferrer"
                 className="inline-block rounded-lg border-2 border-amber-500 bg-white/50 px-8 py-3 text-lg font-semibold text-amber-700 backdrop-blur-sm transition-colors hover:bg-amber-100 dark:bg-slate-800/50 dark:text-amber-300 dark:hover:bg-amber-900/50"
@@ -107,14 +107,14 @@ export default function Home() {
               Ready to Transform Your Workflow?
             </h2>
             <p className="mb-8 text-xl text-slate-600 dark:text-slate-300">
-              Get started with CodeFlow Engine alpha today and experience the future of PR automation.
+              Get started with the CodeFlow Engine private preview today and experience the future of PR automation.
             </p>
             <div className="flex flex-col items-center justify-center gap-4 sm:flex-row">
               <Link
                 href="/login"
                 className="inline-block rounded-lg bg-gradient-to-r from-blue-500 to-purple-500 px-8 py-3 text-lg font-semibold text-white transition-all hover:from-blue-600 hover:to-purple-600 hover:shadow-lg"
               >
-                Try Alpha Preview
+                Request Private Preview
               </Link>
               <Link
                 href="/installation"
