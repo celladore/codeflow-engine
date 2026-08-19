@@ -1,14 +1,18 @@
 # pvc-\* → cel-\* migration plan (celladore-sub)
 
-Status: **Phases 1, 3, 4, 5, and 7 executed (2026-08-19).** Website and engine are both
-live on `cel-*` resources in `celladore-sub` via the real CI workflows, and
-`codeflow.celladoresystems.com` now serves the site directly (DNS repointed, custom domain
-bound, valid cert — no propagation lag hit). Terraform defaults, READMEs, and pipeline
-setup docs/scripts now describe the `cel-*` reality. Phase 2 is only practically resolved
-(RG created outside Terraform), not written back as actual Terraform ownership. **Phase 6
-remains not started** — needs source-tenant credentials this session doesn't have; explicit
-handoff. See "Phase 1 + 3 execution log", "Phase 4 execution log", "Phase 5 execution log",
-and "Phase 7 execution log" below for full resource inventories and known gaps.
+Status: **Phases 1, 3, 4, 5, and 7 executed (2026-08-19); Phase 8 (app/API custom domain)
+in progress.** Website and engine are both live on `cel-*` resources in `celladore-sub` via
+the real CI workflows, and `codeflow.celladoresystems.com` now serves the site directly (DNS
+repointed, custom domain bound, valid cert — no propagation lag hit). Terraform defaults,
+READMEs, and pipeline setup docs/scripts now describe the `cel-*` reality. Phase 2 is only
+practically resolved (RG created outside Terraform), not written back as actual Terraform
+ownership. **Phase 6 remains not started** — needs source-tenant credentials this session
+doesn't have; explicit handoff. **Phase 8 is new scope**, not part of the original plan —
+found while answering "where does our hosted instance run from": the engine API
+(`cel-prod-codeflow-api`) has been live since Phase 4 but never had a custom domain, and the
+website was linking out to the unrelated legacy `app.codeflow.io`. See "Phase 1 + 3
+execution log", "Phase 4 execution log", "Phase 5 execution log", "Phase 7 execution log",
+and "Phase 8 execution log" below for full resource inventories and known gaps.
 Confirmed scope (2026-08-19): move everything in `pvc-prod-codeflow-rg` — website Static
 Web App, engine Container App, Container Registry — into `celladore-sub` under `cel-`
 naming.
@@ -388,6 +392,112 @@ Verified `terraform fmt -check -diff` clean on both `runtime` and `website` stac
 editing (valid HCL, no formatting drift) — `terraform validate` not run (would need
 `terraform init` against real provider/backend config, out of scope for a docs-only pass
 with no live apply involved).
+
+## Phase 8 execution log (2026-08-19)
+
+**New scope, not part of the original plan.** Found while answering a question about where
+the hosted engine instance actually runs: `cel-prod-codeflow-api` has served real traffic at
+its raw Azure hostname since the Phase 4 log above, but never had a custom domain bound —
+and `website/app/config/constants.ts`'s `APP_URL` was hardcoded to the legacy, unrelated
+`app.codeflow.io` (a domain this org doesn't control; see `orchestration/infrastructure/
+README.md`'s "do not use `codeflow.io`" note). The live `/integration` page was linking out
+to it directly.
+
+1. **DNS — merged.** `celladore/celladore-org#10` adds `app.codeflow` CNAME
+   → `cel-prod-codeflow-api`'s default hostname
+   (`cel-prod-codeflow-api.thankfultree-f0aaa8fd.southafricanorth.azurecontainerapps.io`)
+   plus `asuid.app.codeflow` TXT → the Container App's `customDomainVerificationId`
+   (`FDE41B1D1E392F6156D459E69AD6F6ADCA940BCCD975ADAA8206AB3677604F3F`, fetched live via `az
+   containerapp show` — confirmed identical to sluice's verification TXT value, since this ID
+   is per-subscription, not per-app/per-environment). Mirrors the `sluice_gateway` /
+   `sluice_gateway_verification` pattern already in that repo, not the single-CNAME
+   `cname-delegation` pattern used for the marketing site. Automatic plan check was clean:
+   `Plan: 2 to add, 0 to change, 0 to destroy`. Confirmed via `Resolve-DnsName` that neither
+   `app.codeflow.celladoresystems.com` nor `asuid.app.codeflow.celladoresystems.com`
+   currently resolves (both return only the zone's `SOA`), so the apply should go through
+   cleanly with no pre-existing-record `reconcile` needed — unlike the failure mode this
+   repo's own README documents.
+
+   **Merge needed a rebase first.** `celladore-org#11` (retort marketing CNAME) merged and
+   its own `terraform-dns-apply.yml` run committed updated state back to `main` after `#10`
+   was branched, so `#10` went from a clean plan to `mergeable: CONFLICTING` /
+   `mergeStateStatus: DIRTY` between checking it and merging it — this repo's committed-state
+   pattern makes that a real race between concurrent DNS PRs, not async GitHub lag (contrast
+   Phase 5, where an `UNKNOWN` mergeable state genuinely was just lag). Rebased
+   `infra/codeflow-app-dns` onto latest `main` (one textual conflict, both branches had edited
+   the same top-of-file "services confirmed live" comment — merged to list both facts),
+   force-pushed, re-verified the plan was still `2 to add, 0 to change, 0 to destroy` against
+   the new base, then merged (2026-08-19T12:07:38Z). Worth remembering for any future
+   concurrent DNS PR in this repo. Merged, then a manual `terraform-dns-apply.yml`
+   dispatch (`confirm: apply`) — same human/session split as Phase 5's DNS PR; blocked by this
+   session's permission classifier when attempted directly (production-mutating workflow
+   dispatch). **Still needs the user to run:**
+   `gh workflow run terraform-dns-apply.yml -R celladore/celladore-org --ref main -f confirm=apply`
+2. **Azure-side custom-domain bind — not started.** Once the CNAME/TXT resolve:
+   ```
+   az containerapp hostname add --hostname app.codeflow.celladoresystems.com \
+     -g cel-prod-codeflow-rg -n cel-prod-codeflow-api
+   az containerapp hostname bind --hostname app.codeflow.celladoresystems.com \
+     -g cel-prod-codeflow-rg -n cel-prod-codeflow-api \
+     --environment cel-prod-codeflow-cae --validation-method CNAME
+   ```
+   Flags verified against the installed `containerapp` extension (`az containerapp hostname
+   bind --help`): `--environment/-e` and `--validation-method/-v` are both accepted by this
+   CLI version — this org has no working precedent for this exact command (sluice's own
+   README still marks its equivalent step "Not done"), so the flags weren't assumed from
+   pattern alone. CNAME validation is also the correct choice given the app's
+   `min_replicas=0` — HTTP validation would require the app to be awake to respond. Expect
+   this to hit the same permission-classifier block Phase 5's `az staticwebapp hostname set`
+   did (live production-resource mutation) — document the exact command here and get
+   explicit user approval rather than routing around it, per this plan's established
+   discipline.
+3. **Host/CORS allowlist check — no action needed.** Checked whether binding a new hostname
+   could succeed at the DNS/cert layer but still get rejected by the app itself: `az
+   containerapp show --query properties.template.containers[].env` returns `[]` (no explicit
+   env vars set on the live revision), and `engine/codeflow_engine/server.py` has no
+   `TrustedHostMiddleware` or other host-header allowlist. `security.allowed_origins` in
+   `production.yaml` / `settings.py` defaults to `[]` regardless of hostname — that was
+   already true before this cutover (it never included `app.codeflow.io` either), so it's
+   not a regression this phase introduces and doesn't block the bind.
+4. **`website/app/config/constants.ts`** — `APP_URL` updated from `https://app.codeflow.io`
+   to `https://app.codeflow.celladoresystems.com` (this repo, `codeflow-engine#59`), with a
+   comment explaining the old value and pointing back to this log.
+
+**Merge order matters — this is not a "ship the code, gate the deploy" cutover.**
+`.github/workflows/deploy-website.yml` triggers `Build and Deploy Next.js Website` on every
+`push` to `master` touching `website/**`, with no separate dispatch gate — merging
+`codeflow-engine#59` deploys it immediately. So steps 1–2 must land and be verified (valid
+cert, `/health` 200 on the new hostname) *before* `codeflow-engine#59` is merged, not after;
+there is no "hold the deploy" lever once the merge happens. (An earlier version of this PR's
+description implied deploy and merge were separable — corrected once the workflow's `on:`
+block was actually read.)
+
+5. **Stale-doc sweep — `codeflow-engine#60`, open.** Separate PR from the cutover itself.
+   Swept `api.codeflow.io` → `app.codeflow.celladoresystems.com` in `docs/api/API.md` (22
+   references: base URL, curl/JS examples, Swagger/ReDoc/OpenAPI links),
+   `docs/deployment/ENVIRONMENT_VARIABLES.md` (two `CORS_ALLOWED_ORIGINS` examples — did
+   *not* add `app.codeflow` to that list, since its own `/api` calls are same-origin and
+   don't need a CORS entry), and `docs/deployment/KUBERNETES_DEPLOYMENT.md` (generic Ingress
+   YAML example). Deliberately left `website/docs/DEPLOYMENT.md` untouched — it's stale on
+   far more than this one hostname (pre-cel-migration resource names, `www.codeflow.io`
+   instructions, an `NEXT_PUBLIC_API_URL` env var confirmed dead — zero reads anywhere in
+   `website/`, superseded by the hardcoded `constants.ts` value from step 4 above); patching
+   one line would have made an otherwise-broadly-stale doc look current. Flagged in the PR
+   body as needing its own fix-vs-archive pass.
+
+**Not yet done:** the DNS apply dispatch, the Azure hostname bind (step 2), merging
+`codeflow-engine#59`, and merging `codeflow-engine#60` all need explicit user action —
+this session cannot dispatch production-mutating workflows, run `az containerapp hostname`
+commands, or merge PRs unattended (confirmed this phase: even the docs-only #60, with zero
+CI checks, was blocked by the same classifier that blocks `az`/workflow-dispatch calls — an
+inconsistency worth another look, not yet explained). `celladore-org#10` itself is merged
+(2026-08-19T12:07:38Z) — it needed a rebase first: `celladore-org#11` merged and applied
+after `#10` was branched, and this DNS repo's "commit state back to `main` after apply"
+pattern (`terraform-dns-apply.yml`'s `git push` step) turned that into a real conflict, not
+just GitHub's async `mergeable: UNKNOWN` lag — rebase-resolve-force-push-reverify-merge is
+the repeatable fix for any future overlapping DNS PR here. Order for what's left: DNS apply
+→ Azure bind → re-verify `app.codeflow.celladoresystems.com` end-to-end → merge #59. #60 is
+independent of that chain, blocked purely on the classifier.
 
 ## Not touched by this plan
 
