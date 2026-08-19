@@ -482,17 +482,30 @@ block was actually read.)
    `docs/deployment/ENVIRONMENT_VARIABLES.md` (two `CORS_ALLOWED_ORIGINS` examples — did
    *not* add `app.codeflow` to that list, since its own `/api` calls are same-origin and
    don't need a CORS entry), and `docs/deployment/KUBERNETES_DEPLOYMENT.md` (generic Ingress
-   YAML example). Deliberately left `website/docs/DEPLOYMENT.md` untouched — it's stale on
-   far more than this one hostname (pre-cel-migration resource names, `www.codeflow.io`
-   instructions, an `NEXT_PUBLIC_API_URL` env var confirmed dead — zero reads anywhere in
-   `website/`, superseded by the hardcoded `constants.ts` value from step 4 above); patching
-   one line would have made an otherwise-broadly-stale doc look current. Flagged in the PR
-   body as needing its own fix-vs-archive pass — **still open as a follow-up**, not part of
-   this phase.
+   YAML example). Deliberately left `website/docs/DEPLOYMENT.md` untouched at the time — it
+   was stale on far more than this one hostname, and patching one line would have made an
+   otherwise-broadly-stale doc look current. Flagged in the PR body as needing its own
+   fix-vs-archive pass.
+
+   **Follow-up closed out** (separate PR, `docs/website-deployment-cleanup`): reading
+   `website/docs/DEPLOYMENT.md` in full turned up a second problem — `docs/WEBSITE_DEPLOYMENT.md`
+   at the repo-root docs level covers the same ground with its *own*, independently wrong set
+   of facts (a third naming convention, `{env}-{resourcetype}-{region}-codeflow`; `codeflow.io`
+   as the domain; `main` as the branch; a nonexistent `infrastructure/bicep/website.bicep`).
+   Two separately-drifting docs for one deploy path was the actual bug, not just one doc being
+   stale. Fix: verified live reality against the Terraform stack (`orchestration/infrastructure/terraform/website/main.tf` —
+   only `azurerm_resource_group` + `azurerm_static_web_app` + `azurerm_static_web_app_custom_domain`,
+   no CDN, no App Insights; SKU is Free tier per `variables.tf`, not the Standard the old doc
+   assumed for its cost estimate) and against `.github/workflows/deploy-website.yml` (branch
+   is `master`, workflow file is `deploy-website.yml`, PR runs build-only validation, deploy
+   step silently no-ops if the token secret is unset), then rewrote `docs/WEBSITE_DEPLOYMENT.md`
+   as the single canonical doc and replaced `website/docs/DEPLOYMENT.md` with a short pointer
+   to it, instead of maintaining two copies that will just drift again.
 
 **Done.** All six steps above closed out 2026-08-19: DNS applied and verified resolving,
 Azure hostname bound with a trusted managed cert, `codeflow-engine#59` merged (13:36:38Z,
-`deploy-website.yml` run green on `master`), `codeflow-engine#60` merged (13:38:21Z).
+`deploy-website.yml` run green on `master`), `codeflow-engine#60` merged (13:38:21Z), and the
+doc-sweep follow-up from step 5 closed out with a consolidated, verified deployment guide.
 `celladore-org#10` needed a rebase before merging — `celladore-org#11` merged and applied
 after `#10` was branched, and this DNS repo's "commit state back to `main` after apply"
 pattern (`terraform-dns-apply.yml`'s `git push` step) turned that into a real conflict, not
@@ -500,8 +513,8 @@ just GitHub's async `mergeable: UNKNOWN` lag; rebase-resolve-force-push-reverify
 repeatable fix for any future overlapping DNS PR here. One loose end: the classifier blocked
 a direct `gh pr merge` on #60 once (docs-only, zero CI) but let an identical retry through
 minutes later — inconsistency noted, not resolved, doesn't block anything. `app.codeflow.celladoresystems.com`
-is now the live app+API domain end-to-end; `website/docs/DEPLOYMENT.md`'s broader staleness
-remains an open follow-up (see step 5).
+is now the live app+API domain end-to-end, and the website deployment docs now match live
+reality instead of three different sets of fictional resource names.
 
 ## Not touched by this plan
 
