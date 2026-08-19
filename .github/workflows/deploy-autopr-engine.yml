@@ -20,6 +20,9 @@ on:
       - "scripts/setup-azure-auth-for-pipeline.ps1"
   workflow_dispatch:
 
+concurrency:
+  group: deploy-autopr-engine-${{ github.event.pull_request.number || github.ref }}
+
 env:
   IMAGE_REPOSITORY: codeflow-engine
 

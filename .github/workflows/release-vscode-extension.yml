@@ -5,6 +5,9 @@ on:
         tags:
             - "vscode-extension-v*"
 
+concurrency:
+    group: release-vscode-extension-${{ github.ref }}
+
 jobs:
     release:
         runs-on: ubuntu-latest

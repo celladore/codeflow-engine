@@ -5,6 +5,9 @@ on:
         tags:
             - "website-v*"
 
+concurrency:
+    group: release-website-${{ github.ref }}
+
 jobs:
     release:
         runs-on: ubuntu-latest
