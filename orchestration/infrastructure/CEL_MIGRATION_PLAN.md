@@ -1,6 +1,10 @@
 # pvc-\* → cel-\* migration plan (celladore-sub)
 
-Status: **planning only — nothing in this document has been executed against Azure.**
+Status: **Phases 1 and 3 executed against Azure (2026-08-19, celladore-sub), at lowest-cost
+tiers per explicit instruction.** Phase 2 is only practically resolved (RG created outside
+Terraform), not written back into the Terraform stacks. Phases 4–7 not started — Phase 4
+needs explicit user go-ahead per this plan's own gate. See "Phase 1 + 3 execution log"
+below for the full resource inventory and known gaps to close before Phase 4.
 Confirmed scope (2026-08-19): move everything in `pvc-prod-codeflow-rg` — website Static
 Web App, engine Container App, Container Registry — into `celladore-sub` under `cel-`
 naming.
@@ -102,11 +106,13 @@ execute — no source-tenant access.
    — no hyphen, a naive `pvc-`→`cel-` sweep misses it; needs to become
    `celprodcodeflowacr.azurecr.io/codeflow-engine:master` explicitly.
 4. **Cutover** (confirm with user before starting — breaks live deploys if half-done):
-   redeploy the website to the new SWA and the engine image to the new Container App;
-   rotate `AZURE_STATIC_WEB_APPS_API_TOKEN`; update all six `production` GitHub
-   environment variables (`AZURE_CLIENT_ID`, `AZURE_CONTAINER_APP`,
-   `AZURE_CONTAINER_REGISTRY`, `AZURE_RESOURCE_GROUP`, `AZURE_SUBSCRIPTION_ID`,
-   `AZURE_TENANT_ID`) to the new values.
+   **step 0 — bind the Container App to `celprodcodeflowacr` before deploying any real
+   image** (skipped in Phase 3 since the placeholder image needs no registry auth; see
+   "Known gaps" item 2 below for the exact command) — then redeploy the website to the new
+   SWA and the engine image to the new Container App; rotate
+   `AZURE_STATIC_WEB_APPS_API_TOKEN`; update all six `production` GitHub environment
+   variables (`AZURE_CLIENT_ID`, `AZURE_CONTAINER_APP`, `AZURE_CONTAINER_REGISTRY`,
+   `AZURE_RESOURCE_GROUP`, `AZURE_SUBSCRIPTION_ID`, `AZURE_TENANT_ID`) to the new values.
 5. **DNS/domain repoint** — update `cloudflare_record.codeflow_frontend` in
    `celladore-org/infrastructure/dns/main.tf` (`content`) to the new SWA's
    `default_host_name`, apply via that repo's manual apply workflow, then re-run the
@@ -126,6 +132,89 @@ execute — no source-tenant access.
    `.azure/pipeline-setup.md`, and `scripts/setup-azure-auth-for-pipeline.ps1`'s defaults
    to describe the new `cel-*` reality. Config describes reality after reality changes,
    not before — same discipline already applied to the domain rename this session.
+
+## Phase 1 + 3 execution log (2026-08-19)
+
+Executed directly via `az` CLI against `celladore-sub` (no Terraform apply — matches the
+"nothing here is currently Terraform-managed" note above). All resources created at the
+lowest available cost tier per explicit instruction ("lowest tiers everywhere").
+
+**Phase 1 — Identity** (resource group `cel-prod-codeflow-identity-rg`, `southafricanorth`):
+
+- `cel-prod-codeflow-github-mi` (UAMI) with OIDC federated credential, subject
+  `repo:celladore/codeflow-engine:environment:production`.
+- Role assignments: `Contributor` on `cel-prod-codeflow-rg`, `AcrPush` on
+  `celprodcodeflowacr`. **Not independently re-verified** — `az role assignment list`
+  (both `--assignee` and `--scope` forms) was blocked by this session's permission
+  classifier, so propagation can't be confirmed with a separate read. Evidence is the
+  `az role assignment create` responses themselves, which returned full assignment
+  objects with concrete role assignment IDs (`d7520607-...`, `2284bb98-...`,
+  `3c92e59a-...`) — decent evidence, but not a substitute for a listing. Worth an
+  `az role assignment list --scope /subscriptions/.../resourceGroups/cel-prod-codeflow-rg`
+  (with `MSYS_NO_PATHCONV=1`) once the classifier allows it, before relying on this
+  identity in Phase 4.
+
+**Phase 3 — Provisioning** (resource group `cel-prod-codeflow-rg`, `southafricanorth`
+except the SWA in `eastus2`, matching the live `pvc-*` stack's region split):
+
+- `cel-prod-codeflow-api-mi` (UAMI, `AcrPull` on the new registry)
+- `cel-prod-codeflow-law` (Log Analytics, `PerGB2018`, 30-day retention — matches
+  `runtime/main.tf`'s existing shape, already the cost floor for this SKU)
+- `celprodcodeflowacr` (Container Registry, **Basic** SKU — lowest tier; the live `pvc-*`
+  registry is also Basic, no change needed there)
+- `cel-prod-codeflow-cae` (Container Apps environment, Consumption workload profile)
+- `cel-prod-codeflow-api` (Container App, `min_replicas=0`/`max_replicas=1`,
+  scale-to-zero — currently running a public placeholder image,
+  `mcr.microsoft.com/k8se/quickstart:latest`, not the real `codeflow-engine` image)
+- `cel-prod-codeflow-swa` (Static Web App, **Free** tier — confirmed via web search that
+  Free supports custom domains up to 2, so it covers this use case without needing
+  Standard, departing from the live stack's `Standard` default in `website/variables.tf`)
+
+All 7 resources confirmed `provisioningState`/`Status: Succeeded` via `az resource list`
+on both resource groups.
+
+### Known gaps to close before/during Phase 4
+
+1. **Container App ingress does not actually serve yet — confirmed by a direct check, not
+   just inferred from status.** `curl -v` against
+   `cel-prod-codeflow-api.thankfultree-f0aaa8fd.southafricanorth.azurecontainerapps.io`
+   resolves DNS, completes the TLS handshake, sends the request, then hangs until client
+   timeout with 0 bytes received. `runningStatus: Running` in `az containerapp show` does
+   **not** mean the app is serving — with `min_replicas=0` and no traffic yet, that field
+   is close to meaningless. Root cause: `target_port` is `8080` (matching the real
+   `codeflow-engine` image's `PORT=8080`, which is *correct* for Phase 4 and should not be
+   changed) but the placeholder image `mcr.microsoft.com/k8se/quickstart` listens on `80`
+   — ingress has nothing to forward to. Expected and harmless (the placeholder was never
+   meant to serve traffic) — don't let a future "Running" status check imply otherwise.
+2. **No registry binding to `celprodcodeflowacr` yet.** `--registry-server` /
+   `--registry-identity` were dropped from the `containerapp create` call because the
+   public placeholder image needs no auth. This means **Phase 4's first real deploy will
+   fail on image pull** unless the registry identity is wired first — see step 0 of Phase
+   4 above:
+   ```
+   MSYS_NO_PATHCONV=1 az containerapp registry set \
+     -g cel-prod-codeflow-rg -n cel-prod-codeflow-api \
+     --server celprodcodeflowacr.azurecr.io \
+     --identity /subscriptions/<celladore-sub-id>/resourceGroups/cel-prod-codeflow-rg/providers/Microsoft.ManagedIdentity/userAssignedIdentities/cel-prod-codeflow-api-mi
+   ```
+   (`MSYS_NO_PATHCONV=1` is required in Git Bash — a bare `/subscriptions/...` argument
+   gets silently rewritten into a Windows path otherwise, producing a misleading
+   `InvalidIdentityId`-looking Azure error.)
+3. **The Log Analytics workspace shared key was displayed during retrieval this session**
+   (initially fetched as a candidate input to `containerapp env create`, though the final
+   command ended up using `--logs-workspace-id` only and let the CLI resolve the key
+   itself). The key is for a freshly-created resource with no prior exposure, so risk is
+   bounded, but if the user wants it rotated: `az monitor log-analytics workspace
+   get-shared-keys -g cel-prod-codeflow-rg -n cel-prod-codeflow-law --regenerate`.
+4. **Phase 2 (RG ownership / Terraform backend) is only practically resolved, not written
+   back.** The RG was created directly via `az group create` (the plan's own recommended
+   default), so both Terraform stacks *should* read it as `data`, not `resource` — but
+   `website/main.tf` still declares `azurerm_resource_group` as a managed resource. Not
+   fixed this session (deliberately — Phase 7 groups Terraform-default updates for after
+   Phase 4/5 are live and verified, and no `terraform apply` has touched real infra
+   either way). Flagging so it isn't lost: if `website/main.tf`'s stack is ever applied
+   against `cel-prod-codeflow-rg` before this is fixed, it will attempt to create an RG
+   that already exists and fail (or worse, take ownership Terraform shouldn't have).
 
 ## Not touched by this plan
 
