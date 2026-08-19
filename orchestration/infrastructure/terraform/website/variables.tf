@@ -27,13 +27,13 @@ variable "static_web_app_name" {
 }
 
 variable "custom_domain" {
-  description = "Temporary Codeflow launch domain. DNS CNAME is owned by org-meta."
+  description = "Codeflow launch domain. DNS CNAME is owned by celladore-org/infrastructure/dns (Cloudflare, zone celladoresystems.com)."
   type        = string
-  default     = "codeflow.phoenixvc.tech"
+  default     = "codeflow.celladoresystems.com"
 }
 
 variable "enable_custom_domain" {
-  description = "Enable only after org-meta has created the CNAME to the Static Web App default hostname."
+  description = "Enable only after celladore-org/infrastructure/dns has created the CNAME to the Static Web App default hostname and it resolves."
   type        = bool
   default     = false
 }
