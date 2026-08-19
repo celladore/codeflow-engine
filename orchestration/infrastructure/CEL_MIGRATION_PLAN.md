@@ -1,14 +1,14 @@
 # pvc-\* → cel-\* migration plan (celladore-sub)
 
-Status: **Phases 1, 3, 4, and 5 executed against Azure (2026-08-19).** Website and engine
-are both live on `cel-*` resources in `celladore-sub` via the real CI workflows, and
+Status: **Phases 1, 3, 4, 5, and 7 executed (2026-08-19).** Website and engine are both
+live on `cel-*` resources in `celladore-sub` via the real CI workflows, and
 `codeflow.celladoresystems.com` now serves the site directly (DNS repointed, custom domain
-bound, valid cert — no propagation lag hit). Phase 2 is only practically resolved (RG
-created outside Terraform), not written back into the Terraform stacks. Phases 6–7 not
-started — Phase 6 needs source-tenant credentials this session doesn't have; Phase 7
-should follow now that Phase 5 is confirmed live. See "Phase 1 + 3 execution log", "Phase
-4 execution log", and "Phase 5 execution log" below for full
-resource inventories and known gaps.
+bound, valid cert — no propagation lag hit). Terraform defaults, READMEs, and pipeline
+setup docs/scripts now describe the `cel-*` reality. Phase 2 is only practically resolved
+(RG created outside Terraform), not written back as actual Terraform ownership. **Phase 6
+remains not started** — needs source-tenant credentials this session doesn't have; explicit
+handoff. See "Phase 1 + 3 execution log", "Phase 4 execution log", "Phase 5 execution log",
+and "Phase 7 execution log" below for full resource inventories and known gaps.
 Confirmed scope (2026-08-19): move everything in `pvc-prod-codeflow-rg` — website Static
 Web App, engine Container App, Container Registry — into `celladore-sub` under `cel-`
 naming.
@@ -341,6 +341,53 @@ directly. Result: `status: "Ready"`, no error, `createdOn: 2026-08-19T10:20:01Z`
 headers matching the real site, `Last-Modified` matching the Phase 4 deploy. No
 propagation-lag cert-mismatch window was actually observed this time — DNS had already
 been resolving for a while by the time the bind landed. **Phase 5 is complete.**
+
+## Phase 7 execution log (2026-08-19)
+
+Updated Terraform defaults, READMEs, and pipeline setup docs/scripts to describe the live
+`cel-*` reality, per this phase's own instruction ("config describes reality after reality
+changes"). All `pvc-*`/`pvcprodcodeflowacr` values replaced with the confirmed `cel-*`/
+`celprodcodeflowacr` equivalents from the Phase 1+3 and Phase 4 logs above — not a naive
+sweep, each value cross-checked against what was actually created/verified live:
+
+- `terraform/runtime/variables.tf` + README — resource group, Container App, Container
+  Apps Environment, Log Analytics workspace, ACR, Container App identity, `initial_image`,
+  and the `Owner` tag (`phoenixvc` → `celladore`). Added a banner note to the README: this
+  stack has never been applied against real resources (matches the "Nothing here is
+  currently Terraform-managed" note above), so a first real apply needs `terraform import`
+  first, not a plain `apply`.
+- `terraform/website/variables.tf` + README — resource group and SWA name; `sku_tier` /
+  `sku_size` corrected from `Standard` to `Free` (the live SWA is Free tier, confirmed in
+  the Phase 3 log); `enable_custom_domain` default flipped to `true` to match the live
+  binding from Phase 5, with the same import caveat noted. Rewrote the "Known gap: Azure
+  subscription access" section — it wasn't actually a missing-credential problem, the old
+  SWA no longer exists at all; resolved by the Phase 4 recreate.
+- `orchestration/infrastructure/README.md` — the "Active Stacks" section still described
+  the old `codeflow.phoenixvc.tech` / org-meta DNS flow; updated to
+  `codeflow.celladoresystems.com` / `celladore-org/infrastructure/dns`. "Naming" table and
+  the `pvc-{env}-codeflow-{type}` convention line updated to `cel-*`.
+- `.azure/pipeline-setup.md` — table defaults updated to `cel-*`/`celprodcodeflowacr`; added
+  a note flagging the immutable-OIDC-subject-ID gotcha from the Phase 4 log for anyone
+  re-running the setup script.
+- `scripts/setup-azure-auth-for-pipeline.ps1` — all `pvc-*` parameter defaults (identity RG,
+  deployment RG, ACR name, identity name) updated to `cel-*`; `$GitHubOwner` default
+  `phoenixvc` → `celladore`. Added an inline comment on the `$subject` construction line
+  warning that this classic-format string won't match what Azure expects for the celladore
+  org (immutable-subject-ID format) — flagged, not silently fixed, since correcting it
+  properly needs a live subject lookup this script doesn't currently do. Also corrected a
+  pre-existing hardcoded `AZURE_CONTAINER_APP = "pvc-prod-codeflow-api"` in the output
+  block (not derived from any parameter) to the `cel-*` name, with a comment noting it's
+  hardcoded.
+
+Deliberately **not** touched: `CLAUDE.md` (root project instructions — outside this
+phase's explicit scope) and any GitHub Actions workflow files (the actual `production`
+environment variables were already repointed live in Phase 4; these docs/scripts describe
+setup for a *future* re-provisioning, not the current running state).
+
+Verified `terraform fmt -check -diff` clean on both `runtime` and `website` stacks after
+editing (valid HCL, no formatting drift) — `terraform validate` not run (would need
+`terraform init` against real provider/backend config, out of scope for a docs-only pass
+with no live apply involved).
 
 ## Not touched by this plan
 
