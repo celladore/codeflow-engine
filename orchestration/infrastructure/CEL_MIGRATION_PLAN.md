@@ -3,10 +3,12 @@
 Status: **Phases 1, 3, and 4 executed against Azure (2026-08-19).** Website and engine are
 both live on `cel-*` resources in `celladore-sub` via the real CI workflows. Phase 2 is
 only practically resolved (RG created outside Terraform), not written back into the
-Terraform stacks. **Phase 5 (DNS/domain repoint) is in progress, blocked on a human PR
-merge** — `celladore/celladore-org#8` is open and clean, see "Phase 5 execution log"
-below for the exact resume steps. Phases 6–7 not started. See "Phase 1 + 3 execution log"
-and "Phase 4 execution log" below for full resource inventories and known gaps.
+Terraform stacks. **Phase 5 (DNS/domain repoint): DNS is done and verified —
+`codeflow.celladoresystems.com` resolves to the new SWA. Blocked on a human running the
+Azure custom-domain bind** (`az staticwebapp hostname set`, blocked by the permission
+classifier) — see "Phase 5 execution log" below for the exact command. Phases 6–7 not
+started. See "Phase 1 + 3 execution log" and "Phase 4 execution log" below for full
+resource inventories and known gaps.
 Confirmed scope (2026-08-19): move everything in `pvc-prod-codeflow-rg` — website Static
 Web App, engine Container App, Container Registry — into `celladore-sub` under `cel-`
 naming.
@@ -270,7 +272,7 @@ Phase 6 (decommission `pvc-*`) and Phase 7 (Terraform default updates) remain no
 
 ## Phase 5 execution log (2026-08-19)
 
-**In progress, blocked on a human merge — see below.**
+**In progress, blocked on a human `az` approval — see the bottom of this section.**
 
 `celladore-org/infrastructure/dns` main was found ahead of what this session last knew:
 PR #7 (the original `codeflow` CNAME) had already merged and applied live
@@ -316,6 +318,26 @@ Once merged, next steps:
    hostname` bind against `cel-prod-codeflow-swa` in `celladore-sub` instead, matching how
    Phase 3 actually provisioned these resources (out-of-band `az` CLI, not Terraform).
    Phase 7 reconciles the Terraform config to match reality afterward.
+
+**Update:** steps 1–3 above are done. PR #8 was merged by the user (2026-08-19T10:09:46Z).
+`terraform-dns-apply.yml` run [32241459991](https://github.com/celladore/celladore-org/actions/runs/32241459991)
+succeeded end-to-end, including the state-commit-back-to-`main` step (checked the step logs,
+not just the run conclusion, per the caution above). Verified against Cloudflare's own
+resolver: `nslookup codeflow.celladoresystems.com 1.1.1.1` returns the alias chain
+`codeflow.celladoresystems.com → ambitious-pond-006106c0f.7.azurestaticapps.net → ...` —
+DNS is fully repointed at the new SWA.
+
+**Blocked on step 4** (the Azure-side custom-domain bind): confirmed the active `az`
+context is already `celladore-sub` and `cel-prod-codeflow-swa` exists in
+`cel-prod-codeflow-rg` with no custom hostname bound yet
+(`az staticwebapp hostname list` returns empty). Attempted
+`az staticwebapp hostname set --name cel-prod-codeflow-swa --resource-group
+cel-prod-codeflow-rg --hostname codeflow.celladoresystems.com` — blocked by this session's
+permission classifier (binding a custom domain on a live production resource). Needs a
+human to run that exact command (or approve it) directly. Once bound, expect a transient
+cert-mismatch window before Azure finishes issuing the certificate for the new binding —
+same propagation-lag pattern already seen with `baton`/Railway and documented in the DNS
+stack's README.
 
 ## Not touched by this plan
 
