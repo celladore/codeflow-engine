@@ -1,13 +1,13 @@
 # pvc-\* → cel-\* migration plan (celladore-sub)
 
-Status: **Phases 1, 3, and 4 executed against Azure (2026-08-19).** Website and engine are
-both live on `cel-*` resources in `celladore-sub` via the real CI workflows. Phase 2 is
-only practically resolved (RG created outside Terraform), not written back into the
-Terraform stacks. **Phase 5 (DNS/domain repoint): DNS is done and verified —
-`codeflow.celladoresystems.com` resolves to the new SWA. Blocked on a human running the
-Azure custom-domain bind** (`az staticwebapp hostname set`, blocked by the permission
-classifier) — see "Phase 5 execution log" below for the exact command. Phases 6–7 not
-started. See "Phase 1 + 3 execution log" and "Phase 4 execution log" below for full
+Status: **Phases 1, 3, 4, and 5 executed against Azure (2026-08-19).** Website and engine
+are both live on `cel-*` resources in `celladore-sub` via the real CI workflows, and
+`codeflow.celladoresystems.com` now serves the site directly (DNS repointed, custom domain
+bound, valid cert — no propagation lag hit). Phase 2 is only practically resolved (RG
+created outside Terraform), not written back into the Terraform stacks. Phases 6–7 not
+started — Phase 6 needs source-tenant credentials this session doesn't have; Phase 7
+should follow now that Phase 5 is confirmed live. See "Phase 1 + 3 execution log", "Phase
+4 execution log", and "Phase 5 execution log" below for full
 resource inventories and known gaps.
 Confirmed scope (2026-08-19): move everything in `pvc-prod-codeflow-rg` — website Static
 Web App, engine Container App, Container Registry — into `celladore-sub` under `cel-`
@@ -265,14 +265,15 @@ status — same discipline as the Phase 3 "Running status is not proof of servin
    (both `/` and `/health`) returns 200.
 
 **Phase 4 is complete.** Both apps are live on `cel-*` resources through the real CI workflows
-with the new production identity. DNS (Phase 5) still points `codeflow.celladoresystems.com` at
-the *old* `pvc-prod-codeflow-swa` hostname — untouched by this phase, and per
-`celladore-org/infrastructure/dns`'s own README, apparently being worked in parallel elsewhere.
+with the new production identity. (At the time this was written, DNS still pointed
+`codeflow.celladoresystems.com` at the old `pvc-prod-codeflow-swa` hostname — see "Phase 5
+execution log" below, that's since been repointed and Phase 5 is now complete.)
 Phase 6 (decommission `pvc-*`) and Phase 7 (Terraform default updates) remain not started.
 
 ## Phase 5 execution log (2026-08-19)
 
-**In progress, blocked on a human `az` approval — see the bottom of this section.**
+**Complete.** `codeflow.celladoresystems.com` serves the live site directly — see the
+bottom of this section for the final verification.
 
 `celladore-org/infrastructure/dns` main was found ahead of what this session last knew:
 PR #7 (the original `codeflow` CNAME) had already merged and applied live
@@ -327,17 +328,19 @@ resolver: `nslookup codeflow.celladoresystems.com 1.1.1.1` returns the alias cha
 `codeflow.celladoresystems.com → ambitious-pond-006106c0f.7.azurestaticapps.net → ...` —
 DNS is fully repointed at the new SWA.
 
-**Blocked on step 4** (the Azure-side custom-domain bind): confirmed the active `az`
-context is already `celladore-sub` and `cel-prod-codeflow-swa` exists in
-`cel-prod-codeflow-rg` with no custom hostname bound yet
-(`az staticwebapp hostname list` returns empty). Attempted
-`az staticwebapp hostname set --name cel-prod-codeflow-swa --resource-group
-cel-prod-codeflow-rg --hostname codeflow.celladoresystems.com` — blocked by this session's
-permission classifier (binding a custom domain on a live production resource). Needs a
-human to run that exact command (or approve it) directly. Once bound, expect a transient
-cert-mismatch window before Azure finishes issuing the certificate for the new binding —
-same propagation-lag pattern already seen with `baton`/Railway and documented in the DNS
-stack's README.
+**Step 4 (Azure-side custom-domain bind) — done.** Confirmed the active `az` context was
+already `celladore-sub` and `cel-prod-codeflow-swa` existed in `cel-prod-codeflow-rg` with
+no custom hostname bound yet. The bind command itself
+(`az staticwebapp hostname set --name cel-prod-codeflow-swa --resource-group
+cel-prod-codeflow-rg --hostname codeflow.celladoresystems.com`) was blocked by this
+session's permission classifier as a live production-resource mutation; the user ran it
+directly. Result: `status: "Ready"`, no error, `createdOn: 2026-08-19T10:20:01Z`.
+
+**Final verification (2026-08-19T10:24Z):** `curl -I https://codeflow.celladoresystems.com/`
+→ `HTTP/1.1 200 OK`, valid cert (no browser/curl TLS warning), correct CSP/HSTS/security
+headers matching the real site, `Last-Modified` matching the Phase 4 deploy. No
+propagation-lag cert-mismatch window was actually observed this time — DNS had already
+been resolving for a while by the time the bind landed. **Phase 5 is complete.**
 
 ## Not touched by this plan
 
