@@ -59,7 +59,7 @@ codeflow-desktop/
 
 2. **Install Node.js dependencies:**
    ```bash
-   npm install
+   pnpm install
    ```
 
 3. **Install Python dependencies for the sidecar:**
@@ -71,7 +71,7 @@ codeflow-desktop/
 
 **Start the development server:**
 ```bash
-npm run tauri dev
+pnpm run tauri dev
 ```
 
 This command will:
@@ -84,12 +84,12 @@ This command will:
 
 **Build the application:**
 ```bash
-npm run build
+pnpm run build
 ```
 
 **Create distributable packages:**
 ```bash
-npm run tauri build
+pnpm run tauri build
 ```
 
 This generates platform-specific installers in `src-tauri/target/release/bundle/`:

@@ -22,35 +22,35 @@ This is the marketing website for CodeFlow AI, providing information about the p
 ### Prerequisites
 
 - Node.js 18+
-- npm or yarn
+- pnpm
 
 ### Getting Started
 
 ```bash
 # Install dependencies
-npm install
+pnpm install
 
 # Run development server
-npm run dev
+pnpm run dev
 
 # Build for production
-npm run build
+pnpm run build
 
 # Start production server
-npm start
+pnpm start
 ```
 
 ### Testing
 
 ```bash
 # Run tests
-npm test
+pnpm test
 
 # Run tests in watch mode
-npm run test:watch
+pnpm run test:watch
 
 # Run tests with coverage report
-npm run test:coverage
+pnpm run test:coverage
 ```
 
 **Coverage Thresholds**: 60% for statements, branches, functions, and lines.
@@ -59,7 +59,7 @@ npm run test:coverage
 
 ```bash
 # Run ESLint
-npm run lint
+pnpm run lint
 ```
 
 ## Documentation

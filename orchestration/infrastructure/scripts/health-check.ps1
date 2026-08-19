@@ -122,7 +122,7 @@ foreach ($repo in $repos) {
                 Write-Host "  Checking build..." -ForegroundColor Gray
                 if ((Get-Content "package.json" | ConvertFrom-Json).scripts.build) {
                     try {
-                        npm run build --dry-run 2>&1 | Out-Null
+                        pnpm run build --dry-run 2>&1 | Out-Null
                         $health.BuildStatus = "Script exists"
                         Write-Host "    ✓ Build script exists" -ForegroundColor Green
                     } catch {

@@ -9,7 +9,7 @@ Checks for dependency updates and optionally updates them across multiple reposi
 Array of repository paths to update.
 
 .PARAMETER PackageManager
-Package manager to use (npm, pip, poetry). Default: auto-detect
+Package manager to use (pnpm, pip, poetry). Default: auto-detect
 
 .PARAMETER CheckOnly
 Only check for updates, don't apply them. Default: $false
@@ -56,7 +56,7 @@ foreach ($repo in $Repositories) {
     $detectedManager = $PackageManager
     if ($PackageManager -eq "auto") {
         if (Test-Path "package.json") {
-            $detectedManager = "npm"
+            $detectedManager = "pnpm"
         } elseif (Test-Path "pyproject.toml") {
             $detectedManager = "poetry"
         } elseif (Test-Path "requirements.txt") {
@@ -75,10 +75,14 @@ foreach ($repo in $Repositories) {
     
     try {
         switch ($detectedManager) {
-            "npm" {
+            "pnpm" {
                 if ($CheckOnly) {
-                    Write-Host "  Checking for npm updates..." -ForegroundColor Gray
-                    $outdated = npm outdated --json 2>$null | ConvertFrom-Json
+                    Write-Host "  Checking for pnpm updates..." -ForegroundColor Gray
+                    # NOTE: pnpm's `outdated --json` schema differs from npm's (this was
+                    # only mechanically converted from `npm outdated --json`, not verified
+                    # against pnpm's actual output shape) - confirm the field names below
+                    # (current/wanted/latest) still match before relying on this.
+                    $outdated = pnpm outdated --json 2>$null | ConvertFrom-Json
                     if ($outdated) {
                         foreach ($pkg in $outdated.PSObject.Properties) {
                             $updates += @{
@@ -90,13 +94,13 @@ foreach ($repo in $Repositories) {
                         }
                     }
                 } else {
-                    Write-Host "  Updating npm dependencies..." -ForegroundColor Gray
+                    Write-Host "  Updating pnpm dependencies..." -ForegroundColor Gray
                     if ($UpdateType -eq "patch") {
-                        npm update 2>&1 | Out-Null
+                        pnpm update 2>&1 | Out-Null
                     } else {
-                        npm install --save-dev npm-check-updates 2>&1 | Out-Null
-                        npx npm-check-updates -u 2>&1 | Out-Null
-                        npm install 2>&1 | Out-Null
+                        pnpm add --save-dev npm-check-updates 2>&1 | Out-Null
+                        pnpm exec npm-check-updates -u 2>&1 | Out-Null
+                        pnpm install 2>&1 | Out-Null
                     }
                 }
             }

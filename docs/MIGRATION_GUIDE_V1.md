@@ -76,8 +76,8 @@ If using the Tauri desktop app:
 
 ```bash
 cd codeflow-desktop
-npm install  # Update dependencies
-npm run dev  # Start development server
+pnpm install  # Update dependencies
+pnpm run dev  # Start development server
 ```
 
 Dark mode and new analytics page will be available immediately.
@@ -189,7 +189,7 @@ assert result.detected_platform == "base44"
 
 ```bash
 cd codeflow-desktop
-npm run dev
+pnpm run dev
 ```
 
 Verify:
