@@ -12,7 +12,7 @@ on:
       cache:
         required: false
         type: string
-        default: 'npm'
+        default: 'pnpm'
 
 jobs:
   setup:
@@ -20,13 +20,17 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10.33.0
+
       - name: Setup Node.js ${{ inputs.node-version }}
         uses: actions/setup-node@v4
         with:
           node-version: ${{ inputs.node-version }}
           cache: ${{ inputs.cache }}
-      
+
       - name: Install dependencies
-        run: npm ci
+        run: pnpm install --frozen-lockfile
 

@@ -203,7 +203,7 @@ if ($SkipComponents -notcontains "website") {
         Push-Location $WebsitePath
         
         Write-Host "  Building Next.js application..." -ForegroundColor Gray
-        npm run build
+        pnpm run build
         
         if ($LASTEXITCODE -eq 0) {
             Write-Host "  âœ“ Website built successfully" -ForegroundColor Green
@@ -227,7 +227,7 @@ if ($SkipComponents -notcontains "desktop") {
         Push-Location $DesktopPath
         
         Write-Host "  Building Tauri application..." -ForegroundColor Gray
-        npm run build
+        pnpm run build
         
         if ($LASTEXITCODE -eq 0) {
             Write-Host "  âœ“ Desktop app built successfully" -ForegroundColor Green
@@ -251,7 +251,7 @@ if ($SkipComponents -notcontains "vscode-extension") {
         Push-Location $ExtensionPath
         
         Write-Host "  Compiling TypeScript..." -ForegroundColor Gray
-        npm run compile
+        pnpm run compile
         
         if ($LASTEXITCODE -eq 0) {
             Write-Host "  âœ“ Extension compiled successfully" -ForegroundColor Green

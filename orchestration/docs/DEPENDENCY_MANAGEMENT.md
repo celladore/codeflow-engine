@@ -8,7 +8,7 @@ This document describes the dependency management process for CodeFlow repositor
 
 CodeFlow uses multiple package managers across different repositories:
 - **Python:** Poetry (codeflow-engine)
-- **Node.js:** npm/yarn (codeflow-desktop, codeflow-vscode-extension, codeflow-website)
+- **Node.js:** pnpm (codeflow-desktop, codeflow-vscode-extension, codeflow-website)
 - **Infrastructure:** Bicep modules (codeflow-infrastructure)
 
 ---
@@ -190,11 +190,11 @@ requests==3.0.0  # Requires code changes
 safety check
 ```
 
-#### npm audit (Node.js)
+#### pnpm audit (Node.js)
 ```bash
 # Check Node.js dependencies
-npm audit
-npm audit fix
+pnpm audit
+pnpm audit --fix
 ```
 
 ### Security Update Process
@@ -229,10 +229,10 @@ npm audit fix
 - **Update:** `poetry update`
 - **Commit:** Always commit lock file
 
-### Node.js (npm)
-- **File:** `package-lock.json`
+### Node.js (pnpm)
+- **File:** `pnpm-lock.yaml`
 - **Purpose:** Lock exact versions
-- **Update:** `npm update`
+- **Update:** `pnpm update`
 - **Commit:** Always commit lock file
 
 ### Node.js (yarn)
@@ -259,7 +259,7 @@ requests = "^2.28.0"  # >=2.28.0, <3.0.0
 requests = "~2.28.0"  # >=2.28.0, <2.29.0
 ```
 
-#### Node.js (npm)
+#### Node.js (pnpm)
 ```json
 {
   "dependencies": {
@@ -341,9 +341,9 @@ See `renovate.json` at the repo root for the full, current config.
 ## Additional Resources
 
 - [Poetry Documentation](https://python-poetry.org/docs/)
-- [npm Documentation](https://docs.npmjs.com/)
+- [pnpm Documentation](https://pnpm.io/)
 - [Renovate Documentation](https://docs.renovatebot.com/)
-- [Dependabot Documentation](https://docs.github.com/en/code-security/dependabot) (security alerts only — version updates now use Renovate)
+- [Dependabot Documentation](https://docs.github.com/en/code-security/dependabot)
 - [Security Best Practices](./SECURITY_BEST_PRACTICES.md)
 
 ---

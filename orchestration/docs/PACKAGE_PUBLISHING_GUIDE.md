@@ -105,14 +105,14 @@ pip install codeflow-utils-python
 1. **Build Package:**
    ```bash
    cd packages/@codeflow/utils
-   npm install
-   npm run build
+   pnpm install
+   pnpm run build
    ```
 
 2. **Test Package:**
    ```bash
-   npm test
-   npm pack --dry-run
+   pnpm test
+   pnpm pack --dry-run
    ```
 
 3. **Publish to npm:**
@@ -280,7 +280,7 @@ Both packages include:
 
 1. ✅ **Create publishing guide** (this document)
 2. **Set up GitHub secrets** for publishing
-3. **Test publishing process** (TestPyPI / npm test)
+3. **Test publishing process** (TestPyPI / pnpm test)
 4. **Publish initial versions**
 5. **Integrate into existing repos**
 6. **Monitor usage and feedback**

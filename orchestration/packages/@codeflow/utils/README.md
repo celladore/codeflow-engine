@@ -43,19 +43,19 @@ const relative = formatRelativeTime(new Date(2025, 0, 1));
 
 ```bash
 # Install dependencies
-npm install
+pnpm install
 
 # Build
-npm run build
+pnpm run build
 
 # Run tests
-npm test
+pnpm test
 
 # Lint
-npm run lint
+pnpm run lint
 
 # Format
-npm run format
+pnpm run format
 ```
 
 ## License

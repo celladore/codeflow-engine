@@ -17,7 +17,7 @@
 ### Step 2: Install Dependencies (1 minute)
 
 ```bash
-npm install @octokit/auth-app @octokit/rest libsodium-wrappers
+pnpm add @octokit/auth-app @octokit/rest libsodium-wrappers
 ```
 
 ### Step 3: Configure Environment (1 minute)

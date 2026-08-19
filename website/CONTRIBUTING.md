@@ -10,7 +10,7 @@ Thank you for your interest in contributing to the CodeFlow website! This docume
 2. **Clone your fork** locally
 3. **Set up development environment**:
    ```bash
-   npm install
+   pnpm install
    ```
 4. **Create a branch** for your changes
 
@@ -28,13 +28,13 @@ Thank you for your interest in contributing to the CodeFlow website! This docume
 
 ```bash
 # Development server
-npm run dev
+pnpm run dev
 
 # Build
-npm run build
+pnpm run build
 
 # Start production server
-npm start
+pnpm start
 ```
 
 ### Code Style
@@ -47,19 +47,19 @@ npm start
 
 **Before committing:**
 ```bash
-npm run lint
-npm run format
-npm run type-check
+pnpm run lint
+pnpm run format
+pnpm run type-check
 ```
 
 ### Testing
 
 ```bash
 # Run tests
-npm test
+pnpm test
 
 # Run with coverage
-npm run test:coverage
+pnpm run test:coverage
 ```
 
 **Target Coverage:** >60% for pages
