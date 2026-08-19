@@ -1,10 +1,12 @@
 # pvc-\* → cel-\* migration plan (celladore-sub)
 
-Status: **Phases 1 and 3 executed against Azure (2026-08-19, celladore-sub), at lowest-cost
-tiers per explicit instruction.** Phase 2 is only practically resolved (RG created outside
-Terraform), not written back into the Terraform stacks. Phases 4–7 not started — Phase 4
-needs explicit user go-ahead per this plan's own gate. See "Phase 1 + 3 execution log"
-below for the full resource inventory and known gaps to close before Phase 4.
+Status: **Phases 1, 3, and 4 executed against Azure (2026-08-19).** Website and engine are
+both live on `cel-*` resources in `celladore-sub` via the real CI workflows. Phase 2 is
+only practically resolved (RG created outside Terraform), not written back into the
+Terraform stacks. **Phase 5 (DNS/domain repoint) is in progress, blocked on a human PR
+merge** — `celladore/celladore-org#8` is open and clean, see "Phase 5 execution log"
+below for the exact resume steps. Phases 6–7 not started. See "Phase 1 + 3 execution log"
+and "Phase 4 execution log" below for full resource inventories and known gaps.
 Confirmed scope (2026-08-19): move everything in `pvc-prod-codeflow-rg` — website Static
 Web App, engine Container App, Container Registry — into `celladore-sub` under `cel-`
 naming.
@@ -265,6 +267,55 @@ with the new production identity. DNS (Phase 5) still points `codeflow.celladore
 the *old* `pvc-prod-codeflow-swa` hostname — untouched by this phase, and per
 `celladore-org/infrastructure/dns`'s own README, apparently being worked in parallel elsewhere.
 Phase 6 (decommission `pvc-*`) and Phase 7 (Terraform default updates) remain not started.
+
+## Phase 5 execution log (2026-08-19)
+
+**In progress, blocked on a human merge — see below.**
+
+`celladore-org/infrastructure/dns` main was found ahead of what this session last knew:
+PR #7 (the original `codeflow` CNAME) had already merged and applied live
+(2026-08-19T03:07Z, old `pvc-prod-codeflow-swa` hostname) hours before this plan's own
+Phase 4 replaced that SWA. Branched fresh off real `origin/main` rather than reusing a
+stale local branch — see `celladore-org/infrastructure/dns/main.tf`'s `codeflow_frontend`
+comment for the full timeline, corrected to match.
+
+Opened `celladore/celladore-org#8` — repoints `cloudflare_record.codeflow_frontend.content`
+to `ambitious-pond-006106c0f.7.azurestaticapps.net` (the new SWA from Phase 4). Automatic
+read-only plan check is clean: `Plan: 0 to add, 1 to change, 0 to destroy`, single
+`~ update in-place` touching only `content`. Mergeable, no conflicts.
+
+**Blocked here:** this session's own operating rules prohibit merging PRs. PR #8 needs a
+human merge before `terraform-dns-apply.yml` can run — that workflow commits its updated
+state back to `main` via `git push`, so dispatching it against the PR branch instead would
+leave `main` holding stale state pointing at the old hostname, and the next apply on `main`
+would silently revert live DNS back to `pvc-prod-codeflow-swa`. Confirmed the dispatch
+inputs from the workflow source: `confirm` must be exactly `"apply"`; `reconcile` must be
+left blank — that step is hardcoded to `baton_frontend` (literal zone ID, hardcoded record
+name, hardcoded resource address) and does nothing for `codeflow_frontend`. The
+duplicate-record failure mode that step guards against doesn't apply here either — the
+plan already resolved `content` as an in-place update, meaning the record is already in
+state, unlike the first-ever `baton` apply.
+
+Once merged, next steps:
+1. `gh workflow run terraform-dns-apply.yml -R celladore/celladore-org --ref main -f confirm=apply`
+2. Read the run's step logs (not just the conclusion) — the state-commit step is
+   `if: always()` and does a bare `git push`; if `main` is protected that push fails after
+   `terraform apply` already succeeded, giving a red job with correct live DNS.
+3. Verify against an authoritative resolver, not a local cache:
+   `nslookup codeflow.celladoresystems.com 1.1.1.1` expecting
+   `ambitious-pond-006106c0f.7.azurestaticapps.net`.
+4. Bind the Azure-side custom domain. **Not** via
+   `orchestration/infrastructure/terraform/website` as Phase 5's original one-line summary
+   suggested — that stack has never been applied against real resources (see "Nothing here
+   is currently Terraform-managed" above), its `variables.tf` defaults still read
+   `pvc-prod-codeflow-rg` / `pvc-prod-codeflow-swa`, and only `backend.tf.example` exists
+   (no real backend configured). Running it today, even with `enable_custom_domain=true`,
+   would plan against the wrong resource names with fresh empty local state — exactly the
+   anti-pattern this plan already warns against ("do not treat 'update the Terraform
+   defaults and apply' as the migration mechanism"). Use a direct `az staticwebapp
+   hostname` bind against `cel-prod-codeflow-swa` in `celladore-sub` instead, matching how
+   Phase 3 actually provisioned these resources (out-of-band `az` CLI, not Terraform).
+   Phase 7 reconciles the Terraform config to match reality afterward.
 
 ## Not touched by this plan
 
