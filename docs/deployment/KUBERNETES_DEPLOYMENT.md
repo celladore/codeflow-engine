@@ -396,10 +396,10 @@ metadata:
 spec:
   tls:
     - hosts:
-        - api.codeflow.io
+        - app.codeflow.celladoresystems.com
       secretName: codeflow-tls
   rules:
-    - host: api.codeflow.io
+    - host: app.codeflow.celladoresystems.com
       http:
         paths:
           - path: /
