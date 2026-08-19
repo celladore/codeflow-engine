@@ -216,6 +216,56 @@ on both resource groups.
    against `cel-prod-codeflow-rg` before this is fixed, it will attempt to create an RG
    that already exists and fail (or worse, take ownership Terraform shouldn't have).
 
+## Phase 4 execution log (2026-08-19)
+
+Executed via `az`/`gh` CLI against `celladore-sub` and the `celladore/codeflow-engine` repo.
+Both real deploys (website + engine) verified live via direct HTTP checks, not just workflow
+status — same discipline as the Phase 3 "Running status is not proof of serving" lesson above.
+
+1. **Step 0 — registry bind.** `az containerapp registry set` for `cel-prod-codeflow-api` →
+   `celprodcodeflowacr.azurecr.io` via `cel-prod-codeflow-api-mi`. Was already bound (idempotent
+   — no-op on this run).
+2. **`production` GitHub environment variables** repointed to celladore resources:
+   `AZURE_CLIENT_ID`, `AZURE_CONTAINER_APP`, `AZURE_CONTAINER_REGISTRY`, `AZURE_RESOURCE_GROUP`,
+   `AZURE_SUBSCRIPTION_ID`, `AZURE_TENANT_ID`. Verified via `gh variable list --env production`.
+3. **`AZURE_STATIC_WEB_APPS_API_TOKEN`** (repo-level secret, not environment-scoped — confirmed
+   by reading `deploy-website.yml` in full, which has no `environment:` key and authenticates
+   only with this token) rotated to `cel-prod-codeflow-swa`'s deployment key. Piped directly
+   from `az staticwebapp secrets list` into `gh secret set`, never written to disk or printed.
+4. **Website deploy** (`deploy-website.yml`, `workflow_dispatch`): succeeded on the first try.
+   Verified live: `https://ambitious-pond-006106c0f.7.azurestaticapps.net/` returns 200 with
+   `Last-Modified` matching the deploy timestamp and the expected CSP/HSTS headers.
+5. **Engine deploy** (`deploy-autopr-engine.yml`, `workflow_dispatch`): **failed on the first
+   attempt** with `AADSTS700213: No matching federated identity record found for presented
+   assertion subject 'repo:celladore@317610057/codeflow-engine@1112616962:environment:production'`.
+
+   **Root cause — not previously known, worth flagging for any future federated credential in
+   this org:** the `celladore` org has GitHub's immutable-OIDC-subject-ID behavior active, so
+   the `sub` claim GitHub issues embeds numeric org/repo IDs
+   (`repo:<org>@<org_id>/<repo>@<repo_id>:environment:<name>`) instead of the classic
+   `repo:<org>/<repo>:environment:<name>` string used when `cel-prod-codeflow-github-fc` was
+   created in the Phase 1 log above. The two formats are **not** interchangeable — Azure does
+   exact string matching on `subject`.
+
+   Fixed with `az identity federated-credential update` on
+   `cel-prod-codeflow-github-mi`/`cel-prod-codeflow-github-fc` (in
+   `cel-prod-codeflow-identity-rg`), setting `--subject` to the exact string from the error
+   message. This mutation was blocked once by the session's permission classifier (a trust-
+   boundary change) and required explicit user approval before it could be applied — by design,
+   not a bug to route around. Re-running `deploy-autopr-engine.yml` after the fix succeeded:
+   both jobs (`Build and Push Container Image`, `Deploy Container Image`) green.
+
+   Verified live, not just green CI: `az containerapp show` reports
+   `image: celprodcodeflowacr.azurecr.io/codeflow-engine:master` (no longer the placeholder),
+   and `curl` against `https://cel-prod-codeflow-api.thankfultree-f0aaa8fd.southafricanorth.azurecontainerapps.io/`
+   (both `/` and `/health`) returns 200.
+
+**Phase 4 is complete.** Both apps are live on `cel-*` resources through the real CI workflows
+with the new production identity. DNS (Phase 5) still points `codeflow.celladoresystems.com` at
+the *old* `pvc-prod-codeflow-swa` hostname — untouched by this phase, and per
+`celladore-org/infrastructure/dns`'s own README, apparently being worked in parallel elsewhere.
+Phase 6 (decommission `pvc-*`) and Phase 7 (Terraform default updates) remain not started.
+
 ## Not touched by this plan
 
 `destroy-infra.yml` (repo root) is already broken independent of this migration — stale
