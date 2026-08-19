@@ -1,33 +1,61 @@
-﻿# CodeFlow Website Deployment Guide
+# CodeFlow Website Deployment Guide
 
-This document describes the Next.js website and Azure deployment setup for codeflow.io.
+This document describes the Next.js website and Azure deployment setup for
+`codeflow.celladoresystems.com`.
+
+> **Canonical doc.** This is the single source of truth for website deployment.
+> `website/docs/DEPLOYMENT.md` is a pointer to this file — don't let the two
+> drift again; edit only this one.
 
 ## Overview
 
 The CodeFlow Engine website is a Next.js application that provides:
 - **Home Page**: Project promotion and key features
-- **Installation Guide**: Step-by-step installation instructions  
+- **Installation Guide**: Step-by-step installation instructions
 - **Download Page**: Links to various download methods (GitHub, PyPI, Docker)
 
 ## Architecture
 
 ### Technology Stack
 
-- **Framework**: Next.js 16+ with App Router
-- **Styling**: Tailwind CSS 4
+- **Framework**: Next.js (static export, `output: "export"`)
+- **Styling**: Tailwind CSS
 - **Deployment**: Azure Static Web Apps
-- **CI/CD**: GitHub Actions
+- **CI/CD**: GitHub Actions (`.github/workflows/deploy-website.yml`)
 
 ### Azure Resources
 
-All resources follow the naming convention: `{env}-{resourcetype}-{region}-codeflow`
+Live resources (celladore-sub, recreated 2026-08-19 from the old
+phoenixvc-owned `pvc-*` resources — see
+`orchestration/infrastructure/CEL_MIGRATION_PLAN.md` for the full cutover
+history):
 
-#### Production Resources
+- **Static Web App**: `cel-prod-codeflow-swa`
+- **Resource Group**: `cel-prod-codeflow-rg`
+- **Location**: `eastus2`
+- **SKU**: Free tier (supports up to 2 custom domains — sufficient for this site)
+- **Custom Domain**: `codeflow.celladoresystems.com`
 
-- **Static Web App**: `prod-stapp-san-codeflow`
-- **Resource Group**: `prod-rg-san-codeflow`
-- **Location**: `eastus2` (East US 2) - Static Web Apps are only available in: westus2, centralus, eastus2, westeurope, eastasia
-- **Custom Domain**: `codeflow.io`
+There is no CDN or Application Insights component provisioned for this site —
+only the Static Web App itself. If you need those, they'd have to be added
+first, not just documented.
+
+### Infrastructure as Code
+
+The Terraform stack for this site lives at
+`orchestration/infrastructure/terraform/website/` (this repo's canonical live
+Terraform for the website — see the root `CLAUDE.md`). As of 2026-08-19 it has
+**never been successfully applied**: no backend is configured (only
+`backend.tf.example` exists) and no state tracks the live resources, which
+were created out-of-band via `az` CLI. A first real `terraform apply` needs
+`terraform import` for the resource group and the Static Web App first, or it
+will try to create duplicates. See that stack's own `README.md` for the exact
+apply sequence and known gaps — don't treat it as already the deployment
+mechanism; the GitHub Actions workflow below is what actually ships the site
+today.
+
+There is no `infrastructure/bicep/` directory in this repo — ignore any prior
+references to Bicep-based deployment for this site.
 
 ## Local Development
 
@@ -43,113 +71,109 @@ Visit `http://localhost:3000` to view the site.
 
 ### Automatic Deployment
 
-The website is automatically deployed when:
-- Changes are pushed to the `main` branch in the `website/` directory
+`.github/workflows/deploy-website.yml` deploys automatically when:
+- Changes are pushed to the **`master`** branch touching `website/**` or the
+  workflow file itself
 - The workflow is manually triggered via `workflow_dispatch`
+
+A pull request touching those paths runs a separate build-only validation job
+(no deploy).
+
+The deploy job builds with `npm ci` + `npm run build`, then uploads the static
+export in `website/out` via `Azure/static-web-apps-deploy@v1`
+(`skip_app_build: true` — the action does not rebuild, it just uploads what
+the workflow already built).
 
 ### Manual Deployment
 
-1. **Build the site**:
-   ```bash
-   cd website
-   npm run build
-   ```
-
-2. **Deploy using Azure CLI**:
-   ```bash
-   npm install -g @azure/static-web-apps-cli
-   swa deploy ./out --deployment-token <YOUR_TOKEN>
-   ```
-
-### Infrastructure Deployment
-
-To deploy the Azure infrastructure:
-
 ```bash
-# Create resource group first (if it doesn't exist)
-az group create \
-  --name prod-rg-san-codeflow \
-  --location "eastus2"
+cd website
+npm run build
 
-# Deploy the Static Web App
-az deployment group create \
-  --resource-group prod-rg-san-codeflow \
-  --template-file infrastructure/bicep/website.bicep \
-  --parameters @infrastructure/bicep/website-parameters.json
+npm install -g @azure/static-web-apps-cli
+swa deploy ./out --deployment-token <YOUR_TOKEN>
 ```
-
-**Note:** The resource group must exist before deploying the Static Web App. The Static Web App will be created in the specified resource group.
 
 ## Configuration
 
-### Required GitHub Secrets
+### Required GitHub Secret
 
-- `AZURE_STATIC_WEB_APPS_API_TOKEN`: Deployment token from Azure Static Web App
-- `AZURE_SUBSCRIPTION_ID`: Azure subscription ID
-- `AZURE_CLIENT_ID`: Service principal client ID (for infrastructure deployment)
-- `AZURE_CLIENT_SECRET`: Service principal client secret
-- `AZURE_TENANT_ID`: Azure AD tenant ID
+- `AZURE_STATIC_WEB_APPS_API_TOKEN`: deployment token for `cel-prod-codeflow-swa`.
+  If unset, the deploy step is skipped and the workflow just confirms the
+  build succeeded (see the "Skip deploy when token is missing" step).
 
 ### Getting the Deployment Token
 
-After creating the Static Web App, retrieve the deployment token:
-
 ```bash
 az staticwebapp secrets list \
-  --name prod-stapp-san-codeflow \
-  --resource-group prod-rg-san-codeflow \
+  --name cel-prod-codeflow-swa \
+  --resource-group cel-prod-codeflow-rg \
   --query "properties.apiKey" \
   --output tsv
 ```
 
+### Environment variables
+
+There is no `NEXT_PUBLIC_API_URL` or other runtime env var wired into the
+site. `APP_URL` / `API_URL` are compile-time constants in
+`website/app/config/constants.ts` — edit that file directly and redeploy
+rather than looking for a `.env.production`.
+
 ## Custom Domain Setup
 
-1. **Deploy the infrastructure** (if not already done)
+The custom domain is already live. This is the sequence that was actually
+used, for reference if it ever needs to be redone:
 
-2. **Get domain validation token**:
-```bash
-az staticwebapp hostname show \
-  --name prod-stapp-san-codeflow \
-  --resource-group prod-rg-san-codeflow \
-  --hostname codeflow.io
-```
-
-3. **Add DNS TXT record** to your domain provider:
-   - Record type: TXT
-   - Name: `asuid.codeflow.io` (or as specified by Azure)
-   - Value: (validation token from step 2)
-
-4. **Wait for validation** (usually 5-10 minutes)
-
-5. **Add CNAME record** (if not automatically created):
-   - Record type: CNAME
-   - Name: `codeflow.io` (or `www.codeflow.io`)
-   - Value: `{static-web-app-name}.azurestaticapps.net`
+1. `celladore-org/infrastructure/dns` (Cloudflare, zone `celladoresystems.com`)
+   owns the `codeflow.celladoresystems.com` CNAME pointing at the Static Web
+   App's default hostname. This repo does not own that DNS record.
+2. Once the CNAME resolves, bind the custom domain on the Static Web App:
+   ```bash
+   az staticwebapp hostname set \
+     --name cel-prod-codeflow-swa \
+     --resource-group cel-prod-codeflow-rg \
+     --hostname codeflow.celladoresystems.com
+   ```
+3. Azure provisions the SSL certificate automatically (`cname-delegation`
+   validation, no TXT record needed since DNS already points at the SWA
+   default hostname).
+4. Verify:
+   ```bash
+   az staticwebapp hostname show \
+     --name cel-prod-codeflow-swa \
+     --resource-group cel-prod-codeflow-rg \
+     --hostname codeflow.celladoresystems.com
+   ```
+   or simply `curl -I https://codeflow.celladoresystems.com/` and check for
+   `200` with a valid cert.
 
 ## Project Structure
 
 ```
 website/
-â”œâ”€â”€ app/
-â”‚   â”œâ”€â”€ page.tsx              # Home page
-â”‚   â”œâ”€â”€ installation/
-â”‚   â”‚   â””â”€â”€ page.tsx          # Installation guide
-â”‚   â”œâ”€â”€ download/
-â”‚   â”‚   â””â”€â”€ page.tsx          # Download page
-â”‚   â”œâ”€â”€ layout.tsx             # Root layout
-â”‚   â””â”€â”€ globals.css           # Global styles
-â”œâ”€â”€ public/                   # Static assets
-â”œâ”€â”€ next.config.ts            # Next.js configuration
-â”œâ”€â”€ package.json
-â””â”€â”€ README.md
+├── app/
+│   ├── page.tsx              # Home page
+│   ├── installation/
+│   │   └── page.tsx          # Installation guide
+│   ├── download/
+│   │   └── page.tsx          # Download page
+│   ├── config/
+│   │   └── constants.ts      # APP_URL / API_URL etc. (compile-time)
+│   ├── layout.tsx            # Root layout
+│   └── globals.css           # Global styles
+├── public/                   # Static assets
+├── next.config.ts            # Next.js configuration
+├── package.json
+└── README.md
 
-infrastructure/bicep/
-â”œâ”€â”€ website.bicep             # Azure infrastructure definition
-â”œâ”€â”€ website-parameters.json   # Deployment parameters
-â””â”€â”€ README-WEBSITE.md         # Infrastructure documentation
+orchestration/infrastructure/terraform/website/
+├── main.tf                   # Resource group + Static Web App + custom domain
+├── variables.tf
+├── outputs.tf
+└── README.md                 # Apply sequence, known gaps (see above)
 
 .github/workflows/
-â””â”€â”€ deploy-website.yml        # CI/CD pipeline
+└── deploy-website.yml        # CI/CD pipeline
 ```
 
 ## Next.js Configuration
@@ -171,41 +195,47 @@ This ensures compatibility with Azure Static Web Apps.
 
 ## Monitoring
 
-- **Azure Portal**: Monitor Static Web App metrics, logs, and performance
-- **GitHub Actions**: View deployment status and logs
-- **Custom Domain**: Monitor DNS and SSL certificate status
+- **GitHub Actions**: deployment status and build logs
+- **Azure Portal**: Static Web App overview for basic traffic/availability
+  (no Application Insights component is provisioned — don't expect
+  app-level telemetry beyond that)
+- **Custom Domain**: DNS and SSL certificate status via
+  `az staticwebapp hostname show` (see above)
 
 ## Troubleshooting
 
 ### Build Failures
 
-- Check Node.js version (requires 20+)
+- Check Node.js version (workflow uses 20)
 - Verify all dependencies are installed
 - Review build logs in GitHub Actions
 
 ### Deployment Failures
 
-- Verify `AZURE_STATIC_WEB_APPS_API_TOKEN` is correct
-- Check Azure Static Web App exists and is accessible
+- Verify `AZURE_STATIC_WEB_APPS_API_TOKEN` is set in repo secrets — if it's
+  missing, the workflow silently skips the deploy step instead of failing
+- Check `cel-prod-codeflow-swa` exists and is accessible
 - Review deployment logs in GitHub Actions
 
 ### Custom Domain Issues
 
-- Verify DNS records are correct
-- Check domain validation status in Azure Portal
-- Ensure SSL certificate is provisioned (automatic for Static Web Apps)
+- Verify the CNAME in `celladore-org/infrastructure/dns` still resolves
+- Check domain validation status in Azure Portal or via
+  `az staticwebapp hostname show`
+- A transient cert-mismatch right after DNS changes is expected — the CNAME
+  can resolve before Azure finishes binding the custom domain
 
-## Cost Estimation
+## Cost
 
-- **Static Web App (Standard)**: ~$9/month
-- **Custom Domain**: Included
-- **Bandwidth**: 100 GB included, then $0.08/GB
-
-Total estimated monthly cost: ~$9-15 depending on traffic.
+Live SKU is **Free tier** — no static-web-app hosting cost for this site at
+current traffic. If usage ever requires moving to Standard, re-check current
+Azure pricing before quoting a number here; don't assume a stale figure.
 
 ## References
 
 - [Next.js Documentation](https://nextjs.org/docs)
 - [Azure Static Web Apps Documentation](https://learn.microsoft.com/azure/static-web-apps/)
-- [GitHub Actions for Azure](https://github.com/azure/login)
-
+- `orchestration/infrastructure/CEL_MIGRATION_PLAN.md` — full cutover history
+  (DNS, custom domain, and the celladore-sub recreate-and-cutover)
+- `orchestration/infrastructure/terraform/website/README.md` — Terraform apply
+  sequence and known gaps
