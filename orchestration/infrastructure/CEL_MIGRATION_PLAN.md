@@ -59,14 +59,22 @@ migration; see "Separate, more urgent item" below). UAMIs cannot move cross-tena
 celladore-branded commits) and its Azure Login step succeeded. Whether that run's OIDC
 subject claim was already `repo:celladore/codeflow-engine:environment:production` or
 still the pre-transfer name, I can't determine from here — I don't have a reliable
-timestamp for exactly when the org transfer completed relative to that run, the workflow
-has no `workflow_dispatch` trigger to test on demand, and `setup-azure-auth-for-pipeline.ps1`
-parameterizes the subject rather than hardcoding it (so the script's source doesn't reveal
-what was actually applied to Azure). **This needs a direct check**: either a trivial push
-touching `engine/**` to see if the next run's Azure Login step succeeds, or the user
-confirming the federated credential's subject directly in the source tenant. If it's
-already broken, that's a live incident independent of the cel- rename and worth fixing
-first regardless of migration sequencing.
+timestamp for exactly when the org transfer completed relative to that run, and
+`setup-azure-auth-for-pipeline.ps1` parameterizes the subject rather than hardcoding it
+(so the script's source doesn't reveal what was actually applied to Azure).
+
+Correction: an earlier version of this section claimed the workflow has no
+`workflow_dispatch` trigger to test on demand. That was wrong — `deploy-autopr-engine.yml`
+line 21 declares `workflow_dispatch:`, and the "Deploy Container Image" job's condition
+(`(github.ref == 'refs/heads/master' && github.event_name == 'push') || github.event_name
+== 'workflow_dispatch'`) means a manual dispatch runs the real deploy, not a no-op. I
+attempted `gh workflow run deploy-autopr-engine.yml -R celladore/codeflow-engine --ref
+master` to resolve this directly; it was blocked by the permission classifier (manual
+trigger of a live production deploy needs the user's own action). **This still needs a
+direct check** — the user running that same command themselves and confirming the Azure
+Login step succeeds, or confirming the federated credential's subject directly in the
+source tenant. If it's already broken, that's a live incident independent of the cel-
+rename and worth fixing first regardless of migration sequencing.
 
 ## Phased plan
 
