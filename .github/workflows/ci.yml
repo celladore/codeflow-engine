@@ -56,7 +56,7 @@ jobs:
       # Runs both test trees for coverage. Still continue-on-error because tests/ has
       # 75 pre-existing failures and 56 errors that this step has been masking; making
       # it gate today would just turn master red. Tracked separately — remove this line
-      # once tests/ is clean, and delete the ratchet step below when you do.
+      # once tests/ is clean, and delete the ratchet steps below when you do.
       - name: Run tests with coverage
         continue-on-error: true
         run: |
@@ -69,6 +69,24 @@ jobs:
       - name: Enforce quality_engine tests
         run: |
           poetry run pytest codeflow_engine/actions/quality_engine/__tests__
+
+      # Ratchet: the ADR 17 request-metadata suite is green (92 passed), so it gates
+      # too. Unlike quality_engine this one does live under tests/, so the step above
+      # already collects it — and then masks every failure, which left a contract other
+      # repos depend on effectively untested here.
+      # What it holds: every Sluice-bound request carries {app, agent}, agent stays
+      # inside the closed label set, and no provider stack reaches the gateway
+      # untagged. That last part is why config inspection is not enough — the async
+      # ai.core stack never passes base_url, so OPENAI_BASE_URL / ANTHROPIC_BASE_URL
+      # alone can reroute it to Sluice with no metadata block and nothing in a diff to
+      # notice. Sluice's ADR 17 is heading for stage-3 enforcement (untagged requests
+      # get HTTP 400), so a regression here becomes a production failure, not a lint.
+      # Re-runs those 92 (~1 min). `!cancelled()` so a failure in the ratchet above
+      # reports alongside this one instead of hiding it.
+      - name: Enforce ADR 17 sluice request-metadata tests
+        if: '!cancelled()'
+        run: |
+          poetry run pytest tests/test_sluice_request_metadata.py
 
       - name: Upload coverage to Codecov
         uses: codecov/codecov-action@v4
