@@ -2,7 +2,7 @@
 
 export default function PromoBanner() {
   return (
-    <div className="bg-gradient-to-r from-amber-500 to-orange-500 py-3 text-center">
+    <div className="border-b border-blue-200 bg-blue-50 py-2 text-center dark:border-blue-900 dark:bg-blue-950/40">
       <div className="mx-auto max-w-7xl px-6">
         <p className="text-sm font-semibold text-white">
           <span className="mr-2">🔒 Private Preview:</span>
@@ -11,9 +11,9 @@ export default function PromoBanner() {
             href="https://github.com/celladore/codeflow-engine/discussions"
             target="_blank"
             rel="noopener noreferrer"
-            className="ml-2 underline hover:no-underline"
+            className="ml-2 underline underline-offset-2 hover:no-underline"
           >
-            Share feedback →
+            Star on GitHub →
           </a>
         </p>
       </div>
