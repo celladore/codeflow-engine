@@ -2,18 +2,17 @@
 
 export default function PromoBanner() {
   return (
-    <div className="bg-gradient-to-r from-amber-500 to-orange-500 py-3 text-center">
+    <div className="border-b border-blue-200 bg-blue-50 py-2 text-center dark:border-blue-900 dark:bg-blue-950/40">
       <div className="mx-auto max-w-7xl px-6">
-        <p className="text-sm font-semibold text-white">
-          <span className="mr-2">🚧 Alpha Preview:</span>
-          CodeFlow Engine is currently in alpha. Features may change and some functionality may be limited.
+        <p className="text-xs font-medium text-blue-700 dark:text-blue-300">
+          Open source alpha — MIT licensed.
           <a
-            href="https://github.com/JustAGhosT/codeflow-engine/discussions"
+            href="https://github.com/celladore/codeflow-engine"
             target="_blank"
             rel="noopener noreferrer"
-            className="ml-2 underline hover:no-underline"
+            className="ml-2 underline underline-offset-2 hover:no-underline"
           >
-            Share feedback →
+            Star on GitHub →
           </a>
         </p>
       </div>
