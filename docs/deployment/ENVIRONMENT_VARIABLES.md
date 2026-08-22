@@ -363,7 +363,7 @@ JWT_EXPIRY=7200
 Allowed origins for CORS.
 
 ```bash
-CORS_ALLOWED_ORIGINS=https://www.codeflow.io,https://app.codeflow.io
+CORS_ALLOWED_ORIGINS=https://codeflow.celladoresystems.com
 ```
 
 ### `RATE_LIMIT_PER_MINUTE`
@@ -658,7 +658,7 @@ GITHUB_TOKEN=ghp_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
 OPENAI_API_KEY=sk-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
 ANTHROPIC_API_KEY=sk-ant-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
 SECRET_KEY=your-secret-key-at-least-32-characters-long
-CORS_ALLOWED_ORIGINS=https://www.codeflow.io,https://app.codeflow.io
+CORS_ALLOWED_ORIGINS=https://codeflow.celladoresystems.com
 SENTRY_DSN=https://xxxxx@xxxxx.ingest.sentry.io/xxxxx
 ```
 

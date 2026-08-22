@@ -462,7 +462,7 @@ formatted = format_iso_datetime(datetime.now())
 ```bash
 mkdir @codeflow/utils
 cd @codeflow/utils
-npm init -y
+pnpm init
 ```
 
 ### Step 2: Configure Package
@@ -609,7 +609,7 @@ export function formatRelativeTime(date: Date, now: Date = new Date()): string {
 
 1. **Build Package:**
    ```bash
-   npm run build
+   pnpm run build
    ```
 
 2. **Publish to npm:**

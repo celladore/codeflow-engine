@@ -20,6 +20,10 @@ on:
             - "vscode-extension/package.json"
             - "orchestration/packages/@codeflow/utils/package.json"
 
+concurrency:
+    group: validate-version-${{ github.event.pull_request.number || github.ref }}
+    cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
 jobs:
     validate-version:
         runs-on: ubuntu-latest

@@ -200,11 +200,11 @@ npm install @codeflow/utils
 
 ```bash
 cd packages/@codeflow/utils
-npm install
-npm run build
-npm link
+pnpm install
+pnpm run build
+pnpm link --global
 cd ../../codeflow-desktop  # or other repo
-npm link @codeflow/utils
+pnpm link --global @codeflow/utils
 ```
 
 #### Option C: Add to Dependencies
@@ -303,13 +303,13 @@ Ensure your `tsconfig.json` includes the package:
 #### Run Tests
 
 ```bash
-npm test
+pnpm test
 ```
 
 #### Check for Import Errors
 
 ```bash
-npm run build
+pnpm run build
 ```
 
 #### Verify Functionality

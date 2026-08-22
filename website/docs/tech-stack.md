@@ -114,8 +114,8 @@ This document provides a comprehensive overview of the technology stack used in 
 | Attribute | Value |
 |-----------|-------|
 | Version | 20.x (LTS) |
-| Package Manager | npm |
-| Dependency Installation | `npm ci` (CI-optimized) |
+| Package Manager | pnpm |
+| Dependency Installation | `pnpm install --frozen-lockfile` (CI-optimized) |
 
 ---
 
@@ -142,8 +142,8 @@ This document provides a comprehensive overview of the technology stack used in 
 | volume-precommit | Custom pre-commit hook |
 
 **Scripts**:
-- `npm run precommit` - Full pre-commit checks
-- `npm run precommit:fast` - Fast mode (skip Prettier)
+- `pnpm run precommit` - Full pre-commit checks
+- `pnpm run precommit:fast` - Fast mode (skip Prettier)
 
 ---
 
@@ -160,9 +160,9 @@ This document provides a comprehensive overview of the technology stack used in 
 | Accessibility Tests | Not implemented | - |
 
 **CI Testing Status**:
-- `npm test` script: Not configured in package.json
-- CI workflow runs `npm test || true` (non-blocking, always passes)
-- Linting: Present but non-blocking (`npm run lint || true`)
+- `pnpm test` script: Not configured in package.json
+- CI workflow runs `pnpm test || true` (non-blocking, always passes)
+- Linting: Present but non-blocking (`pnpm run lint || true`)
 
 ### Recommended Testing Stack
 
@@ -263,7 +263,7 @@ This is a static marketing website with no backend data layer.
 | Technology | Current | Min Supported | Max Tested |
 |------------|---------|---------------|------------|
 | Node.js | 20.x | 18.x | 22.x |
-| npm | 10.x | 8.x | 10.x |
+| pnpm | 10.x | 10.x | 10.x |
 | Next.js | 16.0.7 | 16.0.0 | 16.x |
 | React | 19.2.0 | 19.0.0 | 19.x |
 | TypeScript | 5.x | 5.0.0 | 5.x |

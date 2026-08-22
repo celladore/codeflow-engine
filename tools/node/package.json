@@ -1,6 +1,7 @@
-﻿{
+{
   "name": "codeflow-engine",
   "version": "1.0.0",
+  "packageManager": "pnpm@10.33.0",
   "description": "**AI-Powered GitHub PR Automation and Issue Management**",
   "main": "index.js",
   "directories": {

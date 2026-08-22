@@ -8,7 +8,7 @@ This document describes the dependency management process for CodeFlow repositor
 
 CodeFlow uses multiple package managers across different repositories:
 - **Python:** Poetry (codeflow-engine)
-- **Node.js:** npm/yarn (codeflow-desktop, codeflow-vscode-extension, codeflow-website)
+- **Node.js:** pnpm (codeflow-desktop, codeflow-vscode-extension, codeflow-website)
 - **Infrastructure:** Bicep modules (codeflow-infrastructure)
 
 ---
@@ -57,11 +57,13 @@ CodeFlow uses multiple package managers across different repositories:
 
 ### Automated Reviews
 
-#### Dependabot
-- **Configuration:** `.github/dependabot.yml`
-- **Frequency:** Daily checks
-- **Scope:** All dependencies
-- **Actions:** Create PRs for updates
+#### Renovate
+- **Configuration:** `renovate.json` (repo root)
+- **Frequency:** Weekly, grouped per ecosystem/workspace
+- **Scope:** All dependencies (pnpm across every JS workspace root, Poetry/pip for `engine/`, GitHub Actions)
+- **Actions:** Create grouped PRs for updates
+
+> Migrated from Dependabot in August 2026 — see `renovate.json` for the live config.
 
 #### Security Scanning
 - **GitHub Advanced Security:** Dependency scanning
@@ -177,8 +179,8 @@ requests==3.0.0  # Requires code changes
 
 ### Security Scanning Tools
 
-#### GitHub Dependabot
-- **Configuration:** `.github/dependabot.yml`
+#### GitHub Dependabot (security alerts only)
+- **Configuration:** Repo Settings → Code security (native GitHub feature, no config file — independent of the version-update mechanism below)
 - **Alerts:** Automatic vulnerability detection
 - **Updates:** Automated security PRs
 
@@ -188,11 +190,11 @@ requests==3.0.0  # Requires code changes
 safety check
 ```
 
-#### npm audit (Node.js)
+#### pnpm audit (Node.js)
 ```bash
 # Check Node.js dependencies
-npm audit
-npm audit fix
+pnpm audit
+pnpm audit --fix
 ```
 
 ### Security Update Process
@@ -227,10 +229,10 @@ npm audit fix
 - **Update:** `poetry update`
 - **Commit:** Always commit lock file
 
-### Node.js (npm)
-- **File:** `package-lock.json`
+### Node.js (pnpm)
+- **File:** `pnpm-lock.yaml`
 - **Purpose:** Lock exact versions
-- **Update:** `npm update`
+- **Update:** `pnpm update`
 - **Commit:** Always commit lock file
 
 ### Node.js (yarn)
@@ -257,7 +259,7 @@ requests = "^2.28.0"  # >=2.28.0, <3.0.0
 requests = "~2.28.0"  # >=2.28.0, <2.29.0
 ```
 
-#### Node.js (npm)
+#### Node.js (pnpm)
 ```json
 {
   "dependencies": {
@@ -309,44 +311,38 @@ requests = "~2.28.0"  # >=2.28.0, <2.29.0
 
 ---
 
-## Dependabot Configuration
+## Renovate Configuration
 
-### Example `.github/dependabot.yml`
+### Live config: `renovate.json`
 
-```yaml
-version: 2
-updates:
-  # Python dependencies
-  - package-ecosystem: "pip"
-    directory: "/"
-    schedule:
-      interval: "weekly"
-    open-pull-requests-limit: 10
-    reviewers:
-      - "team-leads"
-    labels:
-      - "dependencies"
-      - "python"
+Renovate auto-detects every package manifest in the monorepo (no per-directory
+entries needed, unlike Dependabot) — all `package.json`/`pnpm-lock.yaml` roots,
+`engine/pyproject.toml` + `poetry.lock`, the `requirements.txt` files, and
+GitHub Actions workflow versions. Updates are grouped per ecosystem/workspace
+so they land as one PR instead of one per package.
 
-  # Node.js dependencies
-  - package-ecosystem: "npm"
-    directory: "/"
-    schedule:
-      interval: "weekly"
-    open-pull-requests-limit: 10
-    reviewers:
-      - "team-leads"
-    labels:
-      - "dependencies"
-      - "javascript"
+```json
+{
+  "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+  "extends": ["config:recommended"],
+  "schedule": ["before 6am on monday"],
+  "packageRules": [
+    { "matchManagers": ["npm"], "groupName": "js dependencies ({{packageFileDir}})" },
+    { "matchManagers": ["poetry", "pip_requirements", "pep621"], "groupName": "python dependencies ({{packageFileDir}})" },
+    { "matchManagers": ["github-actions"], "groupName": "github actions" }
+  ]
+}
 ```
+
+See `renovate.json` at the repo root for the full, current config.
 
 ---
 
 ## Additional Resources
 
 - [Poetry Documentation](https://python-poetry.org/docs/)
-- [npm Documentation](https://docs.npmjs.com/)
+- [pnpm Documentation](https://pnpm.io/)
+- [Renovate Documentation](https://docs.renovatebot.com/)
 - [Dependabot Documentation](https://docs.github.com/en/code-security/dependabot)
 - [Security Best Practices](./SECURITY_BEST_PRACTICES.md)
 

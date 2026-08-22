@@ -1,0 +1,46 @@
+{
+  "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+  "extends": [
+    "config:recommended"
+  ],
+  "timezone": "Africa/Johannesburg",
+  "schedule": [
+    "before 6am on monday"
+  ],
+  "labels": [
+    "dependencies"
+  ],
+  "prConcurrentLimit": 10,
+  "lockFileMaintenance": {
+    "enabled": true,
+    "schedule": [
+      "before 6am on monday"
+    ]
+  },
+  "packageRules": [
+    {
+      "description": "Group all pnpm/npm ecosystem updates per workspace root so they land as one PR each, mirroring the old Dependabot npm_and_yarn grouping.",
+      "matchManagers": ["npm"],
+      "groupName": "js dependencies ({{packageFileDir}})"
+    },
+    {
+      "description": "Group all Python/Poetry updates for the engine, mirroring the old Dependabot pip grouping.",
+      "matchManagers": ["poetry", "pip_requirements", "pep621"],
+      "groupName": "python dependencies ({{packageFileDir}})"
+    },
+    {
+      "description": "Group GitHub Actions version bumps into one PR.",
+      "matchManagers": ["github-actions"],
+      "groupName": "github actions"
+    },
+    {
+      "description": "Don't touch generated/vendored output.",
+      "matchFileNames": ["**/dist/**", "**/.next/**", "**/node_modules/**"],
+      "enabled": false
+    }
+  ],
+  "vulnerabilityAlerts": {
+    "enabled": true,
+    "labels": ["security"]
+  }
+}

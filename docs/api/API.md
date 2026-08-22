@@ -7,7 +7,7 @@ Complete API reference for the CodeFlow Engine REST API and WebSocket endpoints.
 ## Base URL
 
 ```
-Production: https://api.codeflow.io
+Production: https://app.codeflow.celladoresystems.com
 Development: http://localhost:8000
 ```
 
@@ -20,7 +20,7 @@ Development: http://localhost:8000
 Most endpoints require an API key passed in the `X-API-Key` header:
 
 ```bash
-curl -H "X-API-Key: your-api-key" https://api.codeflow.io/api/status
+curl -H "X-API-Key: your-api-key" https://app.codeflow.celladoresystems.com/api/status
 ```
 
 ### GitHub App Authentication
@@ -53,8 +53,8 @@ Health check endpoint.
 
 **Example:**
 ```bash
-curl https://api.codeflow.io/health
-curl https://api.codeflow.io/health?detailed=true
+curl https://app.codeflow.celladoresystems.com/health
+curl https://app.codeflow.celladoresystems.com/health?detailed=true
 ```
 
 ---
@@ -91,7 +91,7 @@ Get dashboard status and statistics.
 
 **Example:**
 ```bash
-curl -H "X-API-Key: your-api-key" https://api.codeflow.io/api/status
+curl -H "X-API-Key: your-api-key" https://app.codeflow.celladoresystems.com/api/status
 ```
 
 ---
@@ -123,7 +123,7 @@ Get metrics data for dashboard charts.
 
 **Example:**
 ```bash
-curl -H "X-API-Key: your-api-key" https://api.codeflow.io/api/metrics
+curl -H "X-API-Key: your-api-key" https://app.codeflow.celladoresystems.com/api/metrics
 ```
 
 ---
@@ -155,7 +155,7 @@ Get activity history with pagination.
 **Example:**
 ```bash
 curl -H "X-API-Key: your-api-key" \
-  "https://api.codeflow.io/api/history?limit=20&offset=0"
+  "https://app.codeflow.celladoresystems.com/api/history?limit=20&offset=0"
 ```
 
 ---
@@ -209,7 +209,7 @@ curl -X POST \
   -H "X-API-Key: your-api-key" \
   -H "Content-Type: application/json" \
   -d '{"mode": "fast", "files": ["src/main.py"]}' \
-  https://api.codeflow.io/api/quality-check
+  https://app.codeflow.celladoresystems.com/api/quality-check
 ```
 
 **Error Responses:**
@@ -236,7 +236,7 @@ Get current dashboard configuration.
 
 **Example:**
 ```bash
-curl -H "X-API-Key: your-api-key" https://api.codeflow.io/api/config
+curl -H "X-API-Key: your-api-key" https://app.codeflow.celladoresystems.com/api/config
 ```
 
 ---
@@ -270,7 +270,7 @@ curl -X POST \
   -H "X-API-Key: your-api-key" \
   -H "Content-Type: application/json" \
   -d '{"quality_mode": "comprehensive", "auto_fix": true}' \
-  https://api.codeflow.io/api/config
+  https://app.codeflow.celladoresystems.com/api/config
 ```
 
 ---
@@ -357,7 +357,7 @@ Remove allowed commenter.
 ```bash
 curl -X DELETE \
   -H "X-API-Key: your-api-key" \
-  https://api.codeflow.io/api/comment-filter/commenters/user1
+  https://app.codeflow.celladoresystems.com/api/comment-filter/commenters/user1
 ```
 
 ---
@@ -417,7 +417,7 @@ API information endpoint.
 ### Connection
 
 ```javascript
-const ws = new WebSocket('wss://api.codeflow.io/ws?api_key=your-api-key');
+const ws = new WebSocket('wss://app.codeflow.celladoresystems.com/ws?api_key=your-api-key');
 ```
 
 ### Events
@@ -511,10 +511,10 @@ X-RateLimit-Reset: 1705320000
 
 ```bash
 # 1. Check health
-curl https://api.codeflow.io/health
+curl https://app.codeflow.celladoresystems.com/health
 
 # 2. Get status
-curl -H "X-API-Key: your-api-key" https://api.codeflow.io/api/status
+curl -H "X-API-Key: your-api-key" https://app.codeflow.celladoresystems.com/api/status
 
 # 3. Run quality check
 curl -X POST \
@@ -524,11 +524,11 @@ curl -X POST \
     "mode": "fast",
     "files": ["src/main.py", "src/utils.py"]
   }' \
-  https://api.codeflow.io/api/quality-check
+  https://app.codeflow.celladoresystems.com/api/quality-check
 
 # 4. Get history
 curl -H "X-API-Key: your-api-key" \
-  "https://api.codeflow.io/api/history?limit=10"
+  "https://app.codeflow.celladoresystems.com/api/history?limit=10"
 ```
 
 ### Python Example
@@ -536,7 +536,7 @@ curl -H "X-API-Key: your-api-key" \
 ```python
 import requests
 
-API_BASE = "https://api.codeflow.io"
+API_BASE = "https://app.codeflow.celladoresystems.com"
 API_KEY = "your-api-key"
 
 headers = {"X-API-Key": API_KEY}
@@ -558,7 +558,7 @@ print(f"Issues found: {result['total_issues_found']}")
 ### JavaScript Example
 
 ```javascript
-const API_BASE = 'https://api.codeflow.io';
+const API_BASE = 'https://app.codeflow.celladoresystems.com';
 const API_KEY = 'your-api-key';
 
 async function runQualityCheck(files) {
@@ -584,9 +584,9 @@ async function runQualityCheck(files) {
 
 The API includes automatic OpenAPI documentation:
 
-- **Swagger UI**: `https://api.codeflow.io/docs`
-- **ReDoc**: `https://api.codeflow.io/redoc`
-- **OpenAPI JSON**: `https://api.codeflow.io/openapi.json`
+- **Swagger UI**: `https://app.codeflow.celladoresystems.com/docs`
+- **ReDoc**: `https://app.codeflow.celladoresystems.com/redoc`
+- **OpenAPI JSON**: `https://app.codeflow.celladoresystems.com/openapi.json`
 
 ---
 

@@ -301,7 +301,7 @@ curl -X POST ${API_URL}/v1/analyze \\
             <p className="text-blue-800 dark:text-blue-200">
               Check out our{" "}
               <a
-                href="https://github.com/JustAGhosT/codeflow-engine/blob/main/docs/GITHUB_APP_QUICKSTART.md"
+                href="https://github.com/celladore/codeflow-engine/blob/main/docs/GITHUB_APP_QUICKSTART.md"
                 target="_blank"
                 rel="noopener noreferrer"
                 className="underline hover:no-underline"
@@ -310,7 +310,7 @@ curl -X POST ${API_URL}/v1/analyze \\
               </a>{" "}
               or reach out on{" "}
               <a
-                href="https://github.com/JustAGhosT/codeflow-engine/discussions"
+                href="https://github.com/celladore/codeflow-engine/discussions"
                 target="_blank"
                 rel="noopener noreferrer"
                 className="underline hover:no-underline"

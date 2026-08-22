@@ -4,6 +4,10 @@ on:
   issue_comment:
     types: [created]
 
+concurrency:
+  group: pr-comment-handler-${{ github.event.issue.number }}
+  queue: max
+
 permissions:
   contents: write
 

@@ -244,8 +244,8 @@ pytest tests/ -v --tb=short
 
 # Build frontend (if applicable)
 cd codeflow-desktop
-npm install
-npm run build
+pnpm install
+pnpm run build
 cd ..
 ```
 

@@ -21,6 +21,10 @@ on:
       - "engine/install.ps1"
       - ".github/workflows/*.yml"
 
+concurrency:
+  group: validate-templates-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
 jobs:
   validate-yaml:
     name: Validate YAML Files

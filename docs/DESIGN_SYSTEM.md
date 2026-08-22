@@ -474,7 +474,7 @@ The desktop application uses shadcn/ui for consistent, accessible components:
 
 **Adding New Components:**
 ```bash
-npx shadcn@latest add button card badge
+pnpm dlx shadcn@latest add button card badge
 ```
 
 ---

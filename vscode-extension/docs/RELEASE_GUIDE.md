@@ -7,7 +7,7 @@ This guide covers the complete process of building, testing, and publishing the 
 ## Prerequisites
 
 - Node.js 20+
-- npm or yarn
+- pnpm
 - VS Code (for testing)
 - VS Code Marketplace publisher account
 - Personal Access Token (PAT) for publishing
@@ -21,17 +21,17 @@ This guide covers the complete process of building, testing, and publishing the 
 ```bash
 git clone https://github.com/phoenixvc/codeflow-engine.git
 cd codeflow-engine/vscode-extension
-npm install
+pnpm install
 ```
 
 ### 2. Development Mode
 
 ```bash
 # Compile TypeScript
-npm run compile
+pnpm run compile
 
 # Watch mode (auto-compile on changes)
-npm run watch
+pnpm run watch
 
 # Launch extension in new VS Code window
 # Press F5 in VS Code
@@ -45,13 +45,13 @@ npm run watch
 
 ```bash
 # Install dependencies
-npm ci
+pnpm install --frozen-lockfile
 
 # Compile TypeScript
-npm run compile
+pnpm run compile
 
 # Package extension
-npm run package
+pnpm run package
 ```
 
 This creates a `.vsix` file in the root directory:
@@ -64,7 +64,7 @@ codeflow-1.0.10.vsix
 
 ```bash
 # Install VS Code CLI (if not already installed)
-npm install -g @vscode/vsce
+pnpm add -g @vscode/vsce
 
 # Check package contents
 vsce ls codeflow-*.vsix
@@ -201,13 +201,13 @@ echo "Version bumped to $VERSION"
 
 - [ ] Update version in `package.json`
 - [ ] Update `CHANGELOG.md`
-- [ ] Run tests: `npm test`
-- [ ] Build package: `npm run package`
+- [ ] Run tests: `pnpm test`
+- [ ] Build package: `pnpm run package`
 - [ ] Test VSIX locally
 - [ ] Commit changes
 - [ ] Create git tag: `git tag vscode-extension-v0.2.0-alpha.1`
 - [ ] Push tag: `git push origin vscode-extension-v0.2.0-alpha.1`
-- [ ] Publish: `npm run publish`
+- [ ] Publish: `pnpm run publish`
 - [ ] Verify on marketplace
 - [ ] Update release notes on GitHub
 
@@ -234,9 +234,9 @@ If not using CI/CD:
 npm version patch  # or minor, major
 
 # 2. Build and test
-npm run compile
-npm run package
-npm test
+pnpm run compile
+pnpm run package
+pnpm test
 
 # 3. Commit and tag
 git add .
@@ -245,7 +245,7 @@ git tag vscode-extension-v0.2.0-alpha.1
 git push origin master --tags
 
 # 4. Publish
-npm run publish
+pnpm run publish
 ```
 
 ---
@@ -259,18 +259,18 @@ npm run publish
 ```bash
 # Clean and rebuild
 rm -rf node_modules out
-npm install
-npm run compile
+pnpm install
+pnpm run compile
 ```
 
 **Package errors:**
 
 ```bash
 # Verify package.json is valid
-npm run package -- --yarn
+pnpm run package -- --yarn
 
 # Check for missing dependencies
-npm audit
+pnpm audit
 ```
 
 ### Publishing Errors

@@ -5,6 +5,9 @@ on:
         tags:
             - "orchestration-utils-v*"
 
+concurrency:
+    group: release-orchestration-utils-${{ github.ref }}
+
 jobs:
     release:
         runs-on: ubuntu-latest
@@ -15,14 +18,19 @@ jobs:
             contents: write
         steps:
             - uses: actions/checkout@v4
+            - uses: pnpm/action-setup@v4
+              with:
+                  version: 10.33.0
             - name: Set up Node.js
               uses: actions/setup-node@v4
               with:
                   node-version: "20"
+                  cache: "pnpm"
+                  cache-dependency-path: orchestration/packages/@codeflow/utils/pnpm-lock.yaml
             - name: Install dependencies
-              run: npm install
+              run: pnpm install --frozen-lockfile
             - name: Build utilities package
-              run: npm run build
+              run: pnpm run build
             - name: Archive package build
               run: tar -czf ../../../../orchestration-utils-build.tar.gz dist package.json README.md LICENSE
             - name: Create GitHub release

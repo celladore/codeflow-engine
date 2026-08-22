@@ -2,6 +2,17 @@
 
 The Codeflow engine deployment workflow uses GitHub Actions OIDC with a user-assigned managed identity. Do not use the legacy `AZURE_CREDENTIALS` JSON secret for the production deploy path.
 
+> **2026-08-19:** production resources were recreated under `celladore-sub` (`cel-*`
+> naming, resource group `cel-prod-codeflow-identity-rg` for the pipeline identity)
+> following the org transfer to celladore — see `../orchestration/infrastructure/CEL_MIGRATION_PLAN.md`.
+> Also worth knowing if you re-run the setup script below: the `celladore` org has
+> GitHub's immutable-OIDC-subject-ID behavior active, so the federated credential's
+> `subject` needs the `repo:<org>@<org_id>/<repo>@<repo_id>:environment:<name>` form, not
+> the classic `repo:<org>/<repo>:environment:<name>` string — the two are not
+> interchangeable and Azure does exact string matching. The current production credential
+> was fixed to the correct subject after hitting `AADSTS700213` on this exact mismatch;
+> see the migration plan's Phase 4 log for the full story.
+
 ## Production Environment Values
 
 Create a GitHub environment named `production` and configure these environment variables:
@@ -11,9 +22,9 @@ Create a GitHub environment named `production` and configure these environment v
 | `AZURE_CLIENT_ID` | Client ID of the pipeline user-assigned managed identity. |
 | `AZURE_TENANT_ID` | Tenant ID for the Azure subscription. |
 | `AZURE_SUBSCRIPTION_ID` | Subscription containing Codeflow production resources. |
-| `AZURE_RESOURCE_GROUP` | Production resource group, expected default: `pvc-prod-codeflow-rg`. |
-| `AZURE_CONTAINER_APP` | Production Container App, expected default: `pvc-prod-codeflow-api`. |
-| `AZURE_CONTAINER_REGISTRY` | ACR name for production images, expected default: `pvcprodcodeflowacr`. |
+| `AZURE_RESOURCE_GROUP` | Production resource group, expected default: `cel-prod-codeflow-rg`. |
+| `AZURE_CONTAINER_APP` | Production Container App, expected default: `cel-prod-codeflow-api`. |
+| `AZURE_CONTAINER_REGISTRY` | ACR name for production images, expected default: `celprodcodeflowacr`. |
 
 The workflow deploys only to existing infrastructure. Provision or import the production Container App and ACR before running the deploy job.
 

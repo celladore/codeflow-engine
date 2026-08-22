@@ -100,9 +100,9 @@ if ($PackageType -in @("typescript", "both")) {
     
     Write-Host "4. Test Publishing:" -ForegroundColor Cyan
     Write-Host "   cd packages/@codeflow/utils" -ForegroundColor Gray
-    Write-Host "   npm install" -ForegroundColor Gray
-    Write-Host "   npm run build" -ForegroundColor Gray
-    Write-Host "   npm pack --dry-run" -ForegroundColor Gray
+    Write-Host "   pnpm install" -ForegroundColor Gray
+    Write-Host "   pnpm run build" -ForegroundColor Gray
+    Write-Host "   pnpm pack --dry-run" -ForegroundColor Gray
     Write-Host ""
     
     Write-Host "5. Publish to npm:" -ForegroundColor Cyan

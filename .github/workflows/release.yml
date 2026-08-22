@@ -5,6 +5,9 @@ on:
     tags:
       - "engine-v*"
 
+concurrency:
+  group: release-${{ github.ref }}
+
 jobs:
   release:
     runs-on: ubuntu-latest

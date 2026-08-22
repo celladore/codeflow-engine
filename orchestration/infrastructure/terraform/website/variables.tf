@@ -11,7 +11,7 @@ variable "tenant_id" {
 variable "resource_group_name" {
   description = "Resource group for Codeflow website hosting."
   type        = string
-  default     = "pvc-prod-codeflow-rg"
+  default     = "cel-prod-codeflow-rg"
 }
 
 variable "location" {
@@ -23,31 +23,31 @@ variable "location" {
 variable "static_web_app_name" {
   description = "Azure Static Web App resource name."
   type        = string
-  default     = "pvc-prod-codeflow-swa"
+  default     = "cel-prod-codeflow-swa"
 }
 
 variable "custom_domain" {
-  description = "Temporary Codeflow launch domain. DNS CNAME is owned by org-meta."
+  description = "Codeflow launch domain. DNS CNAME is owned by celladore-org/infrastructure/dns (Cloudflare, zone celladoresystems.com)."
   type        = string
-  default     = "codeflow.phoenixvc.tech"
+  default     = "codeflow.celladoresystems.com"
 }
 
 variable "enable_custom_domain" {
-  description = "Enable only after org-meta has created the CNAME to the Static Web App default hostname."
+  description = "Enable only after celladore-org/infrastructure/dns has created the CNAME to the Static Web App default hostname and it resolves. Live reality as of 2026-08-19: the CNAME resolves and the custom domain is bound (done directly via `az staticwebapp hostname set`, not through this stack — see README's known-gap note). Default reflects that; a real first apply still needs the SWA imported first or this will try to create a duplicate."
   type        = bool
-  default     = false
+  default     = true
 }
 
 variable "sku_tier" {
-  description = "Static Web App SKU tier."
+  description = "Static Web App SKU tier. Live resource is Free (confirmed supports up to 2 custom domains, which covers this use case) — departs from this stack's original Standard default."
   type        = string
-  default     = "Standard"
+  default     = "Free"
 }
 
 variable "sku_size" {
   description = "Static Web App SKU size."
   type        = string
-  default     = "Standard"
+  default     = "Free"
 }
 
 variable "tags" {
@@ -56,7 +56,7 @@ variable "tags" {
   default = {
     Environment = "Production"
     Product     = "Codeflow"
-    Owner       = "phoenixvc"
+    Owner       = "celladore"
     ManagedBy   = "Terraform"
   }
 }

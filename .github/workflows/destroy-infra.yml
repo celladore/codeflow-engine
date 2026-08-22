@@ -3,6 +3,9 @@ name: Destroy Infrastructure
 on:
   workflow_dispatch:
 
+concurrency:
+  group: destroy-infra-production
+
 jobs:
   destroy-infra:
     name: Destroy Infrastructure

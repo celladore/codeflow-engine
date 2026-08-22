@@ -7,6 +7,9 @@ name: Copilot Setup Steps
 
 on: workflow_dispatch
 
+concurrency:
+  group: copilot-setup-steps-${{ github.ref }}
+
 env:
   PYTHON_VERSION: "3.13"
 

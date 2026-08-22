@@ -192,7 +192,7 @@ if ! should_skip "website"; then
     cd "$WEBSITE_PATH"
     
     echo "  Building Next.js application..."
-    npm run build
+    pnpm run build
     
     if [[ $? -eq 0 ]]; then
       echo "  âœ“ Website built successfully"
@@ -214,7 +214,7 @@ if ! should_skip "desktop"; then
     cd "$DESKTOP_PATH"
     
     echo "  Building Tauri application..."
-    npm run build
+    pnpm run build
     
     if [[ $? -eq 0 ]]; then
       echo "  âœ“ Desktop app built successfully"
@@ -236,7 +236,7 @@ if ! should_skip "vscode-extension"; then
     cd "$EXTENSION_PATH"
     
     echo "  Compiling TypeScript..."
-    npm run compile
+    pnpm run compile
     
     if [[ $? -eq 0 ]]; then
       echo "  âœ“ Extension compiled successfully"
